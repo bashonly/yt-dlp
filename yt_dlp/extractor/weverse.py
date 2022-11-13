@@ -202,8 +202,6 @@ class WeverseHLSIE(InfoExtractor):
 
     def _real_extract(self, url):
         video_id, query = self._match_valid_url(url).group('id', 'query')
-        if not query:
-            raise ExtractorError('Could not recognize URL query')
         formats = self._extract_m3u8_formats(url, video_id, 'mp4', m3u8_id='hls')
         return {
             'id': video_id,

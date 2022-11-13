@@ -109,7 +109,10 @@ class WeverseIE(InfoExtractor):
         if not self._check_auth():
             self.raise_login_required()
         if not self._WEV_DEVICE_ID:
-            self._WEV_DEVICE_ID = random_uuidv4()  # TODO: this is probably wrong
+            if self._configuration_arg('device', ie_key=WeverseIE):
+                self._WEV_DEVICE_ID = self._configuration_arg('device', ie_key=WeverseIE)[0]
+            else:
+                self._WEV_DEVICE_ID = random_uuidv4()  # TODO: this is probably wrong
 
     def _real_extract(self, url):
         uploader_id, video_id = self._match_valid_url(url).group('artist', 'id')

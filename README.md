@@ -1770,6 +1770,9 @@ The following extractors use this feature:
 #### twitter
 * `force_graphql`: Force usage of the GraphQL API. By default it will only be used if login cookies are provided
 
+#### weverse
+* `device`: Specify a UUID to be used for the `WEV-device-Id` header - should be taken from the same browser session as your cookies, e.g. `weverse:device=59d747af-127d-4f1f-bd81-7dacdcfaa0e3`
+
 NOTE: These options may be changed/removed in the future without concern for backward compatibility
 
 <!-- MANPAGE: MOVE "INSTALLATION" SECTION HERE -->

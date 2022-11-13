@@ -201,7 +201,7 @@ class WeverseIE(InfoExtractor):
 
 
 class WeverseHLSIE(InfoExtractor):
-    _VALID_URL = r'https?://weverse(?:-[^.]+)?\.akamaized.net/(?:[^/]+/){5}hls/(?P<id>[a-f0-9-]+)\.m3u8\?(?P<query>__gda__=[a-f0-9_]+)'
+    _VALID_URL = r'https?://(?:weverse|globalv)(?:-[^.]+)?\.akamaized.net/(?:[^/]+/){5}hls/(?P<id>[a-f0-9-]+)\.m3u8\?(?P<query>__gda__=[a-f0-9_]+)'
 
     def _real_extract(self, url):
         video_id, query = self._match_valid_url(url).group('id', 'query')

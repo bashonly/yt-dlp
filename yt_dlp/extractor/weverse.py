@@ -181,7 +181,6 @@ class WeverseIE(InfoExtractor):
             formats.extend(fmts)
         if not formats:
             self.raise_no_formats('No completed VOD formats found', expected=True)
-        self._sort_formats(formats)
 
         return {
             'id': video_id,

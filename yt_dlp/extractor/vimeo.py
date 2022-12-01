@@ -3,6 +3,7 @@ import functools
 import re
 import itertools
 import urllib.error
+import urllib.parse
 
 from .common import InfoExtractor
 from ..compat import (
@@ -26,6 +27,7 @@ from ..utils import (
     sanitized_Request,
     smuggle_url,
     str_or_none,
+    traverse_obj,
     try_get,
     unified_timestamp,
     unsmuggle_url,
@@ -804,12 +806,16 @@ class VimeoIE(VimeoBaseInfoExtractor):
 
     def _real_extract(self, url):
         url, data, headers = self._unsmuggle_headers(url)
-        if 'Referer' not in headers:
-            headers['Referer'] = url
+        is_embed = urllib.parse.urlparse(url).netloc == 'player.vimeo.com'
 
         # Extract ID from URL
         mobj = self._match_valid_url(url).groupdict()
         video_id, unlisted_hash = mobj['id'], mobj.get('unlisted_hash')
+        if 'Referer' not in headers:
+            if not unlisted_hash and is_embed:
+                unlisted_hash = traverse_obj(parse_qs(url), ('h', -1))
+            headers['Referer'] = url
+
         if unlisted_hash:
             return self._extract_from_api(video_id, unlisted_hash)
 
@@ -833,7 +839,7 @@ class VimeoIE(VimeoBaseInfoExtractor):
                         expected=True)
             raise
 
-        if '://player.vimeo.com/video/' in url:
+        if is_embed:
             config = self._parse_json(self._search_regex(
                 r'\b(?:playerC|c)onfig\s*=\s*({.+?})\s*;', webpage, 'info section'), video_id)
             if config.get('view') == 4:

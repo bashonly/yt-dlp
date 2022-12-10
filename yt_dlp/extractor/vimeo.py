@@ -8,7 +8,6 @@ import urllib.parse
 from .common import InfoExtractor
 from ..compat import (
     compat_HTTPError,
-    compat_str,
     compat_urlparse,
 )
 from ..utils import (
@@ -245,23 +244,21 @@ class VimeoBaseInfoExtractor(InfoExtractor):
             '_format_sort_fields': ('quality', 'res', 'fps', 'hdr:12', 'source'),
         }
 
-    def _extract_original_format(self, url, video_id, unlisted_hash=None):
+    def _extract_original_format(self, url, video_id, unlisted_hash=None, api_response=None):
         query = {'action': 'load_download_config'}
         if unlisted_hash:
             query['unlisted_hash'] = unlisted_hash
         download_data = self._download_json(
-            url, video_id, fatal=False, query=query,
+            url, video_id, fatal=False, query=query, note='Fetching download config',
             headers={'X-Requested-With': 'XMLHttpRequest'},
             expected_status=(403, 404)) or {}
-        source_file = download_data.get('source_file')
-        download_url = try_get(source_file, lambda x: x['download_url'])
+        source_file = download_data.get('source_file') or {}
+        download_url = source_file.get('download_url')
         if download_url and not source_file.get('is_cold') and not source_file.get('is_defrosting'):
             source_name = source_file.get('public_name', 'Original')
             if self._is_valid_url(download_url, video_id, '%s video' % source_name):
-                ext = (try_get(
-                    source_file, lambda x: x['extension'],
-                    compat_str) or determine_ext(
-                    download_url, None) or 'mp4').lower()
+                ext = (str_or_none(source_file.get('extension'))
+                       or determine_ext(download_url, None) or 'mp4').lower()
                 return {
                     'url': download_url,
                     'ext': ext,
@@ -272,26 +269,24 @@ class VimeoBaseInfoExtractor(InfoExtractor):
                     'quality': 1,
                 }
 
-        jwt_response = self._download_json(
-            'https://vimeo.com/_rv/viewer', video_id, note='Downloading jwt token', fatal=False) or {}
-        if not jwt_response.get('jwt'):
-            return
-        headers = {'Authorization': 'jwt %s' % jwt_response['jwt']}
-        original_response = self._download_json(
-            f'https://api.vimeo.com/videos/{video_id}', video_id,
-            headers=headers, fatal=False, expected_status=(403, 404)) or {}
-        for download_data in original_response.get('download') or []:
+        if not api_response:
+            api_response = self._call_api(video_id, fatal=False, unlisted_hash=unlisted_hash)
+            if not api_response:
+                return
+
+        for download_data in traverse_obj(api_response, ('download', ...), expected_type=dict):
             download_url = download_data.get('link')
             if not download_url or download_data.get('quality') != 'source':
                 continue
-            ext = determine_ext(parse_qs(download_url).get('filename', [''])[0].lower(), default_ext=None)
+            ext = (determine_ext(download_url, default_ext=None)
+                   or determine_ext(parse_qs(download_url).get('filename', [''])[0].lower(), default_ext=None))
             if not ext:
                 urlh = self._request_webpage(
                     HEADRequest(download_url), video_id, fatal=False, note='Determining source extension')
-                ext = urlh and urlhandle_detect_ext(urlh)
+                ext = urlhandle_detect_ext(urlh)
             return {
                 'url': download_url,
-                'ext': ext or 'unknown_video',
+                'ext': ext,
                 'format_id': download_data.get('public_name', 'Original'),
                 'width': int_or_none(download_data.get('width')),
                 'height': int_or_none(download_data.get('height')),
@@ -299,6 +294,25 @@ class VimeoBaseInfoExtractor(InfoExtractor):
                 'filesize': int_or_none(download_data.get('size')),
                 'quality': 1,
             }
+
+    def _call_api(self, video_id, query={}, fatal=True, unlisted_hash=None):
+        jwt = self._download_json(
+            'https://vimeo.com/_rv/jwt', video_id, note='Downloading API token', fatal=False,
+            headers={'X-Requested-With': 'XMLHttpRequest'}) or {}
+        token = jwt.get('token')
+        if not token:
+            if fatal:
+                raise ExtractorError('Failed to retrieve API token')
+            self.write_debug('Failed to retrieve API token')
+            return {}
+        api_url = f'https://api.vimeo.com/videos/{video_id}'
+        if unlisted_hash:
+            api_url += f':{unlisted_hash}'
+        expected_status = (403, 404) if not fatal else None
+        return self._download_json(
+            api_url, video_id, note='Downloading API JSON', fatal=fatal, query=query, headers={
+                'Authorization': f'jwt {token}',
+            }, expected_status=expected_status) or {}
 
 
 class VimeoIE(VimeoBaseInfoExtractor):
@@ -525,6 +539,7 @@ class VimeoIE(VimeoBaseInfoExtractor):
                 'view_count': int,
                 'thumbnail': 'https://i.vimeocdn.com/video/22728298-bfc22146f930de7cf497821c7b0b9f168099201ecca39b00b6bd31fcedfca7a6-d_1280',
                 'like_count': int,
+                'tags': ['[the shining', 'vimeohq', 'cv', 'vimeo tribute]'],
             },
             'params': {
                 'skip_download': True,
@@ -736,6 +751,25 @@ class VimeoIE(VimeoBaseInfoExtractor):
                 'skip_download': True,
             },
         },
+        {
+            # embed player URL with source/original format
+            'url': 'https://player.vimeo.com/video/725148986',
+            'md5': '7894b8fa5c7c693846433afa5fc4f0ba',
+            'info_dict': {
+                'id': '725148986',
+                'ext': 'mp4',
+                'title': 'Xcèntric Focus #16: Marcel Hanoun. «L’Été» per Aaron Cabañas',
+                'thumbnail': 'https://i.vimeocdn.com/video/1459946894-aeff931cd6b5cce92f06a860f7d50727eb2808943959a1ff3760ffb04a14cb32-d_1280',
+                'uploader_id': 'cccb',
+                'duration': 1147,
+                'uploader': 'CCCB',
+                'uploader_url': 'https://vimeo.com/cccb',
+                'chapters': [{'title': 'Presentación', 'start_time': 0, 'end_time': 1147}],
+            },
+            'params': {
+                'format': 'source',
+            },
+        },
         # https://gettingthingsdone.com/workflowmap/
         # vimeo embed with check-password page protected by Referer header
     ]
@@ -765,21 +799,16 @@ class VimeoIE(VimeoBaseInfoExtractor):
         return checked
 
     def _extract_from_api(self, video_id, unlisted_hash=None):
-        token = self._download_json(
-            'https://vimeo.com/_rv/jwt', video_id, headers={
-                'X-Requested-With': 'XMLHttpRequest'
-            })['token']
-        api_url = 'https://api.vimeo.com/videos/' + video_id
-        if unlisted_hash:
-            api_url += ':' + unlisted_hash
-        video = self._download_json(
-            api_url, video_id, headers={
-                'Authorization': 'jwt ' + token,
-            }, query={
-                'fields': 'config_url,created_time,description,license,metadata.connections.comments.total,metadata.connections.likes.total,release_time,stats.plays',
-            })
+        query = {
+            'fields': 'config_url,created_time,description,license,metadata.connections.comments.total,metadata.connections.likes.total,release_time,stats.plays',
+        }
+        video = self._call_api(video_id, query=query, fatal=True, unlisted_hash=unlisted_hash)
         info = self._parse_config(self._download_json(
             video['config_url'], video_id), video_id)
+        source_format = self._extract_original_format(
+            f'https://vimeo.com/{video_id}', video_id, unlisted_hash=unlisted_hash, api_response=video)
+        if source_format:
+            info['formats'].append(source_format)
         get_timestamp = lambda x: parse_iso8601(video.get(x + '_time'))
         info.update({
             'description': video.get('description'),
@@ -873,7 +902,12 @@ class VimeoIE(VimeoBaseInfoExtractor):
             if config.get('view') == 4:
                 config = self._verify_player_video_password(
                     redirect_url, video_id, headers)
-            return self._parse_config(config, video_id)
+            player_info = self._parse_config(config, video_id)
+            source_format = self._extract_original_format(
+                f'https://vimeo.com/{video_id}', video_id, unlisted_hash)
+            if source_format:
+                player_info['formats'].append(source_format)
+            return player_info
 
         if re.search(r'<form[^>]+?id="pw_form"', webpage):
             video_password = self._get_video_password()
@@ -964,7 +998,7 @@ class VimeoIE(VimeoBaseInfoExtractor):
         formats = []
 
         source_format = self._extract_original_format(
-            'https://vimeo.com/' + video_id, video_id, video.get('unlisted_hash'))
+            f'https://vimeo.com/{video_id}', video_id, video.get('unlisted_hash'))
         if source_format:
             formats.append(source_format)
 
@@ -1039,6 +1073,7 @@ class VimeoOndemandIE(VimeoIE):  # XXX: Do not subclass from concrete IE
             'view_count': int,
             'thumbnail': 'https://i.vimeocdn.com/video/517077723-7066ae1d9a79d3eb361334fb5d58ec13c8f04b52f8dd5eadfbd6fb0bcf11f613-d_1280',
             'like_count': int,
+            'tags': 'count:5',
         },
         'params': {
             'skip_download': True,

@@ -153,6 +153,7 @@ Some of yt-dlp's default options are different from that of youtube-dl and youtu
 * When `--embed-subs` and `--write-subs` are used together, the subtitles are written to disk and also embedded in the media file. You can use just `--embed-subs` to embed the subs and automatically delete the separate file. See [#630 (comment)](https://github.com/yt-dlp/yt-dlp/issues/630#issuecomment-893659460) for more info. `--compat-options no-keep-subs` can be used to revert this
 * `certifi` will be used for SSL root certificates, if installed. If you want to use system certificates (e.g. self-signed), use `--compat-options no-certifi`
 * yt-dlp's sanitization of invalid characters in filenames is different/smarter than in youtube-dl. You can use `--compat-options filename-sanitization` to revert to youtube-dl's behavior
+* yt-dlp tries to parse the external downloader outputs into the standard progress output if possible (Currently implemented: `aria2c`). You can use `--compat-options no-external-downloader-progress` to get the downloader output as-is
 
 For ease of use, a few more compat options are available:
 
@@ -160,7 +161,7 @@ For ease of use, a few more compat options are available:
 * `--compat-options youtube-dl`: Same as `--compat-options all,-multistreams`
 * `--compat-options youtube-dlc`: Same as `--compat-options all,-no-live-chat,-no-youtube-channel-redirect`
 * `--compat-options 2021`: Same as `--compat-options 2022,no-certifi,filename-sanitization,no-youtube-prefer-utc-upload-date`
-* `--compat-options 2022`: Currently does nothing. Use this to enable all future compat options
+* `--compat-options 2022`: Same as `--compat-options no-external-downloader-progress`. Use this to enable all future compat options
 
 
 # INSTALLATION
@@ -1843,7 +1844,7 @@ Plugins can be installed using various methods and locations.
     * Source: where `<root-dir>/yt_dlp/__main__.py`, `<root-dir>/yt-dlp-plugins/<package name>/yt_dlp_plugins/`
 
 3. **pip and other locations in `PYTHONPATH`**
-    * Plugin packages can be installed and managed using `pip`. See [ytdlp-sample-plugins](https://github.com/yt-dlp/yt-dlp-sample-plugins) for an example.
+    * Plugin packages can be installed and managed using `pip`. See [yt-dlp-sample-plugins](https://github.com/yt-dlp/yt-dlp-sample-plugins) for an example.
       * Note: plugin files between plugin packages installed with pip must have unique filenames
     * Any path in `PYTHONPATH` is searched in for the `yt_dlp_plugins` namespace folder.
       * Note: This does not apply for Pyinstaller/py2exe builds.
@@ -1856,9 +1857,12 @@ Run yt-dlp with `--verbose`/`-v` to check if the plugin has been loaded.
 
 ## Developing Plugins
 
-See [ytdlp-sample-plugins](https://github.com/yt-dlp/yt-dlp-sample-plugins) for a sample plugin package with instructions on how to set up an environment for plugin development. 
+See [yt-dlp-sample-plugins](https://github.com/yt-dlp/yt-dlp-sample-plugins) for a sample plugin package with instructions on how to set up an environment for plugin development. 
 
-All public classes with a name ending in `IE` are imported from each file. This respects underscore prefix (e.g. `_MyBasePluginIE` is private) and `__all__`. Modules can similarly be excluded by prefixing the module name with an underscore (e.g. `_myplugin.py`)
+All public classes with a name ending in `IE`/`PP` are imported from each file for extractors and postprocessors repectively. This respects underscore prefix (e.g. `_MyBasePluginIE` is private) and `__all__`. Modules can similarly be excluded by prefixing the module name with an underscore (e.g. `_myplugin.py`)
+
+To replace an existing extractor with a subclass of one, set the `plugin_name` class keyword argument (e.g. `MyPluginIE(ABuiltInIE, plugin_name='myplugin')` will replace `ABuiltInIE` with `MyPluginIE`). 
+Due to the mechanics behind this, you should exclude the subclass extractor from being imported separately by making it private using one of the methods described above.
 
 If you are a plugin author, add [yt-dlp-plugins](https://github.com/topics/yt-dlp-plugins) as a topic to your repository for discoverability
 

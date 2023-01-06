@@ -292,7 +292,7 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
     """Provide base functions for Youtube extractors"""
 
     _RESERVED_NAMES = (
-        r'channel|c|user|playlist|watch|w|v|embed|e|watch_popup|clip|'
+        r'channel|c|user|playlist|watch|w|v|embed|e|live|watch_popup|clip|'
         r'shorts|movies|results|search|shared|hashtag|trending|explore|feed|feeds|'
         r'browse|oembed|get_video_info|iframe_api|s/player|source|'
         r'storefront|oops|index|account|t/terms|about|upload|signin|logout')
@@ -2650,18 +2650,19 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             """
             @returns (manifest_url, manifest_stream_number, is_live) or None
             """
-            with lock:
-                refetch_manifest(format_id, delay)
+            for retry in self.RetryManager(fatal=False):
+                with lock:
+                    refetch_manifest(format_id, delay)
 
-            f = next((f for f in formats if f['format_id'] == format_id), None)
-            if not f:
-                if not is_live:
-                    self.to_screen(f'{video_id}: Video is no longer live')
-                else:
-                    self.report_warning(
-                        f'Cannot find refreshed manifest for format {format_id}{bug_reports_message()}')
-                return None
-            return f['manifest_url'], f['manifest_stream_number'], is_live
+                f = next((f for f in formats if f['format_id'] == format_id), None)
+                if not f:
+                    if not is_live:
+                        retry.error = f'{video_id}: Video is no longer live'
+                    else:
+                        retry.error = f'Cannot find refreshed manifest for format {format_id}{bug_reports_message()}'
+                    continue
+                return f['manifest_url'], f['manifest_stream_number'], is_live
+            return None
 
         for f in formats:
             f['is_live'] = is_live
@@ -3683,7 +3684,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 'url': fmt_url,
                 'width': int_or_none(fmt.get('width')),
                 'language': join_nonempty(audio_track.get('id', '').split('.')[0],
-                                          'desc' if language_preference < -1 else ''),
+                                          'desc' if language_preference < -1 else '') or None,
                 'language_preference': language_preference,
                 # Strictly de-prioritize damaged and 3gp formats
                 'preference': -10 if is_damaged else -2 if itag == '17' else None,

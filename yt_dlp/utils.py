@@ -3368,7 +3368,7 @@ def js_to_json(code, vars={}, *, strict=False):
             try:
                 if not strict:
                     json.loads(vars[v])
-            except json.decoder.JSONDecodeError:
+            except json.JSONDecodeError:
                 return json.dumps(vars[v])
             else:
                 return vars[v]
@@ -3529,7 +3529,7 @@ def mimetype2ext(mt, default=NO_DEFAULT):
         # Per RFC 3003, audio/mpeg can be .mp1, .mp2 or .mp3.
         # Using .mp3 as it's the most popular one
         'audio/mpeg': 'mp3',
-        'audio/webm': 'weba',
+        'audio/webm': 'webm',
         'audio/x-matroska': 'mka',
         'audio/x-mpegurl': 'm3u',
         'midi': 'mid',
@@ -5387,36 +5387,22 @@ def get_executable_path():
 
 
 def get_user_config_dirs(package_name):
-    locations = set()
-
     # .config (e.g. ~/.config/package_name)
     xdg_config_home = os.getenv('XDG_CONFIG_HOME') or compat_expanduser('~/.config')
-    config_dir = os.path.join(xdg_config_home, package_name)
-    if os.path.isdir(config_dir):
-        locations.add(config_dir)
+    yield os.path.join(xdg_config_home, package_name)
 
     # appdata (%APPDATA%/package_name)
     appdata_dir = os.getenv('appdata')
     if appdata_dir:
-        config_dir = os.path.join(appdata_dir, package_name)
-        if os.path.isdir(config_dir):
-            locations.add(config_dir)
+        yield os.path.join(appdata_dir, package_name)
 
     # home (~/.package_name)
-    user_config_directory = os.path.join(compat_expanduser('~'), '.%s' % package_name)
-    if os.path.isdir(user_config_directory):
-        locations.add(user_config_directory)
-
-    return locations
+    yield os.path.join(compat_expanduser('~'), f'.{package_name}')
 
 
 def get_system_config_dirs(package_name):
-    locations = set()
     # /etc/package_name
-    system_config_directory = os.path.join('/etc', package_name)
-    if os.path.isdir(system_config_directory):
-        locations.add(system_config_directory)
-    return locations
+    yield os.path.join('/etc', package_name)
 
 
 def traverse_obj(
@@ -5438,7 +5424,7 @@ def traverse_obj(
 
     The keys in the path can be one of:
         - `None`:           Return the current object.
-        - `str`/`int`:      Return `obj[key]`. For `re.Match, return `obj.group(key)`.
+        - `str`/`int`:      Return `obj[key]`. For `re.Match`, return `obj.group(key)`.
         - `slice`:          Branch out and return all values in `obj[key]`.
         - `Ellipsis`:       Branch out and return a list of all values.
         - `tuple`/`list`:   Branch out and return a list of all matching values.
@@ -5659,7 +5645,6 @@ def windows_enable_vt_mode():
 
     dll = ctypes.WinDLL('kernel32', use_last_error=False)
     handle = os.open('CONOUT$', os.O_RDWR)
-
     try:
         h_out = ctypes.wintypes.HANDLE(msvcrt.get_osfhandle(handle))
         dw_original_mode = ctypes.wintypes.DWORD()
@@ -5671,14 +5656,12 @@ def windows_enable_vt_mode():
             dw_original_mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
         if not success:
             raise Exception('SetConsoleMode failed')
-    except Exception as e:
-        write_string(f'WARNING: Cannot enable VT mode - {e}')
-    else:
-        global WINDOWS_VT_MODE
-        WINDOWS_VT_MODE = True
-        supports_terminal_sequences.cache_clear()
     finally:
         os.close(handle)
+
+    global WINDOWS_VT_MODE
+    WINDOWS_VT_MODE = True
+    supports_terminal_sequences.cache_clear()
 
 
 _terminal_sequences_re = re.compile('\033\\[[^m]+m')

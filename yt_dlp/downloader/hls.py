@@ -150,6 +150,16 @@ class HlsFD(FragmentFD):
         i = 0
         media_sequence = 0
         decrypt_info = {'METHOD': 'NONE'}
+        external_aes_key = info_dict.get('hls_aes_key')
+        if isinstance(external_aes_key, str):
+            if external_aes_key.startswith('0x'):
+                external_aes_key = external_aes_key[2:]
+            external_aes_key = binascii.unhexlify(external_aes_key)
+        external_aes_iv = info_dict.get('hls_aes_iv')
+        if isinstance(external_aes_iv, str):
+            if external_aes_iv.startswith('0x'):
+                external_aes_iv = external_aes_iv[2:]
+            external_aes_iv = binascii.unhexlify(external_aes_iv.zfill(32))
         byte_range = {}
         discontinuity_count = 0
         frag_index = 0
@@ -218,14 +228,18 @@ class HlsFD(FragmentFD):
                     decrypt_url = decrypt_info.get('URI')
                     decrypt_info = parse_m3u8_attributes(line[11:])
                     if decrypt_info['METHOD'] == 'AES-128':
-                        if 'IV' in decrypt_info:
+                        if external_aes_iv:
+                            decrypt_info['IV'] = external_aes_iv
+                        elif 'IV' in decrypt_info:
                             decrypt_info['IV'] = binascii.unhexlify(decrypt_info['IV'][2:].zfill(32))
                         if not re.match(r'^https?://', decrypt_info['URI']):
                             decrypt_info['URI'] = urllib.parse.urljoin(
                                 man_url, decrypt_info['URI'])
                         if extra_query:
                             decrypt_info['URI'] = update_url_query(decrypt_info['URI'], extra_query)
-                        if decrypt_url != decrypt_info['URI']:
+                        if external_aes_key:
+                            decrypt_info['KEY'] = external_aes_key
+                        elif decrypt_url != decrypt_info['URI']:
                             decrypt_info['KEY'] = None
 
                 elif line.startswith('#EXT-X-MEDIA-SEQUENCE'):

@@ -1,12 +1,16 @@
 import base64
+import binascii
 import json
-
-from Cryptodome.Cipher import PKCS1_OAEP
-from Cryptodome.Hash import SHA1
-from Cryptodome.PublicKey import RSA
+import time
 
 from .common import InfoExtractor
-from ..utils import ExtractorError, int_or_none, traverse_obj, url_or_none
+from ..utils import (
+    ExtractorError,
+    int_or_none,
+    jwt_decode_hs256,
+    traverse_obj,
+    url_or_none,
+)
 
 
 class WrestleUniverseIE(InfoExtractor):
@@ -51,11 +55,21 @@ class WrestleUniverseIE(InfoExtractor):
             headers=headers, query=query, fatal=fatal)
 
     def _call_public_key_api(self, video_id):
+        # TODO: Fix imports using `dependencies.cryptodome`
+        from Cryptodome.Cipher import PKCS1_OAEP
+        from Cryptodome.Hash import SHA1
+        from Cryptodome.PublicKey import RSA
+
         private_key = RSA.generate(2048)
         cipher = PKCS1_OAEP.new(private_key, hashAlgo=SHA1)
 
         def decrypt(data):
-            return cipher.decrypt(base64.b64decode(data)).decode() if data else None
+            if not data:
+                return None
+            try:
+                return cipher.decrypt(base64.b64decode(data)).decode()
+            except (ValueError, binascii.Error) as e:
+                raise ExtractorError(f'Could not decrypt data: {e}')
 
         token = base64.b64encode(private_key.public_key().export_key('DER')).decode()
         api_json = self._call_api(video_id, ':watchArchive', 'watch archive', auth=True, data={
@@ -71,7 +85,7 @@ class WrestleUniverseIE(InfoExtractor):
         if not lang:
             lang = 'ja'
 
-        metadata = self._call_api(video_id, query={'al': lang}, fatal=False)
+        metadata = self._call_api(video_id, msg='metadata', query={'al': lang}, fatal=False)
         if not metadata:
             webpage = self._download_webpage(url, video_id)
             nextjs_data = self._search_nextjs_data(webpage, video_id)
@@ -91,23 +105,32 @@ class WrestleUniverseIE(InfoExtractor):
 
         video_data, decrypt = self._call_public_key_api(video_id)
         if video_data.get('canWatch') is False:
+            exp = traverse_obj(jwt_decode_hs256(self._get_token_cookie()), ('exp', {int_or_none}))
+            if not exp:
+                raise ExtractorError('There was a problem with the token cookie')
+            elif exp <= int(time.time()):
+                raise ExtractorError(
+                    'Expired token. Refresh your cookies in browser and try again', expected=True)
             raise ExtractorError(
                 'This account does not have access to the requested content', expected=True)
 
-        hls_url = traverse_obj(video_data, (None, (
+        hls_url = traverse_obj(video_data, ((
             ('hls', ('urls', 'chromecastUrls')), 'chromecastUrls'), ..., {url_or_none}), get_all=False)
         if not hls_url:
-            self.raise_no_formats('No formats found')
-        formats, subtitles = self._extract_m3u8_formats_and_subtitles(hls_url, video_id, 'mp4', m3u8_id='hls')
+            self.raise_no_formats('No supported formats found')
+        formats = self._extract_m3u8_formats(hls_url, video_id, 'mp4', m3u8_id='hls', live=True)
+        for f in formats:
+            # bitrates are exaggerated in master playlists, avoid wrong/huge filesize_approx values
+            if f.get('tbr'):
+                f['tbr'] = f['tbr'] // 4
 
         hls_aes_key = traverse_obj(video_data, ('hls', 'key', {decrypt}))
         if not hls_aes_key and traverse_obj(video_data, ('hls', 'encryptType', {int_or_none})) == 1:
-            self.report_warning('HLS AES key not found in API response')
+            self.report_warning('HLS AES-128 key was not found in API response')
 
         return {
             'id': video_id,
             'formats': formats,
-            'subtitles': subtitles,
             'hls_aes_key': hls_aes_key,
             'hls_aes_iv': traverse_obj(video_data, ('hls', 'iv', {decrypt})),
             **info,

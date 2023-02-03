@@ -28,6 +28,7 @@ class WrestleUniverseIE(InfoExtractor):
             'timestamp': 1675076400,
             'upload_date': '20230130',
             'thumbnail': 'https://image.asset.wrestle-universe.com/rJs2m7cBaLXrwCcxMdQGRM/rJs2m7cBaLXrwCcxMdQGRM',
+            'thumbnails': 'count:3',
             'hls_aes_key': '5633184acd6e43f1f1ac71c6447a4186',
             'hls_aes_iv': '5bac71beb33197d5600337ce86de7862',
         },
@@ -97,11 +98,12 @@ class WrestleUniverseIE(InfoExtractor):
             'channel': ('labels', 'group', {str}),
             'location': ('labels', 'venue', {str}),
             'timestamp': ('startTime', {int_or_none}),
-            'thumbnail': (None, ('keyVisualUrl', 'alterKeyVisualUrl', 'heroKeyVisualUrl'), {url_or_none}),
-        }, get_all=False)
+            'thumbnails': (('keyVisualUrl', 'alterKeyVisualUrl', 'heroKeyVisualUrl'), {url_or_none}, {'url': None}),
+        })
 
-        if info.get('timestamp') and traverse_obj(metadata, ('endedTime', {int_or_none})):
-            info['duration'] = metadata['endedTime'] - info['timestamp']
+        ended_time = traverse_obj(metadata, ('endedTime', {int_or_none}))
+        if info.get('timestamp') and ended_time:
+            info['duration'] = ended_time - info['timestamp']
 
         video_data, decrypt = self._call_public_key_api(video_id)
         if video_data.get('canWatch') is False:
@@ -114,8 +116,8 @@ class WrestleUniverseIE(InfoExtractor):
             raise ExtractorError(
                 'This account does not have access to the requested content', expected=True)
 
-        hls_url = traverse_obj(video_data, ((
-            ('hls', ('urls', 'chromecastUrls')), 'chromecastUrls'), ..., {url_or_none}), get_all=False)
+        hls_url = traverse_obj(video_data, (
+            ('hls', None), ('urls', 'chromecastUrls'), ..., {url_or_none}), get_all=False)
         if not hls_url:
             self.raise_no_formats('No supported formats found')
         formats = self._extract_m3u8_formats(hls_url, video_id, 'mp4', m3u8_id='hls', live=True)
@@ -125,7 +127,7 @@ class WrestleUniverseIE(InfoExtractor):
                 f['tbr'] = f['tbr'] // 4
 
         hls_aes_key = traverse_obj(video_data, ('hls', 'key', {decrypt}))
-        if not hls_aes_key and traverse_obj(video_data, ('hls', 'encryptType', {int_or_none})) == 1:
+        if not hls_aes_key and traverse_obj(video_data, ('hls', 'encryptType', {int_or_none})) > 0:
             self.report_warning('HLS AES-128 key was not found in API response')
 
         return {

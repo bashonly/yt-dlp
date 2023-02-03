@@ -155,6 +155,7 @@ class HlsFD(FragmentFD):
             if external_aes_key.startswith('0x'):
                 external_aes_key = external_aes_key[2:]
             external_aes_key = binascii.unhexlify(external_aes_key)
+            assert len(external_aes_key) in (16, 24, 32), 'Invalid length for HLS AES-128 key'
         external_aes_iv = info_dict.get('hls_aes_iv')
         if isinstance(external_aes_iv, str):
             if external_aes_iv.startswith('0x'):
@@ -232,15 +233,15 @@ class HlsFD(FragmentFD):
                             decrypt_info['IV'] = external_aes_iv
                         elif 'IV' in decrypt_info:
                             decrypt_info['IV'] = binascii.unhexlify(decrypt_info['IV'][2:].zfill(32))
-                        if not re.match(r'^https?://', decrypt_info['URI']):
-                            decrypt_info['URI'] = urllib.parse.urljoin(
-                                man_url, decrypt_info['URI'])
-                        if extra_query:
-                            decrypt_info['URI'] = update_url_query(decrypt_info['URI'], extra_query)
                         if external_aes_key:
                             decrypt_info['KEY'] = external_aes_key
-                        elif decrypt_url != decrypt_info['URI']:
-                            decrypt_info['KEY'] = None
+                        else:
+                            if not re.match(r'^https?://', decrypt_info['URI']):
+                                decrypt_info['URI'] = urllib.parse.urljoin(man_url, decrypt_info['URI'])
+                            if extra_query:
+                                decrypt_info['URI'] = update_url_query(decrypt_info['URI'], extra_query)
+                            if decrypt_url != decrypt_info['URI']:
+                                decrypt_info['KEY'] = None
 
                 elif line.startswith('#EXT-X-MEDIA-SEQUENCE'):
                     media_sequence = int(line[22:])

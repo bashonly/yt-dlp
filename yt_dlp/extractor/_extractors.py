@@ -2269,6 +2269,7 @@ from .wppilot import (
     WPPilotIE,
     WPPilotChannelsIE,
 )
+from .wrestleuniverse import WrestleUniverseIE
 from .wsj import (
     WSJIE,
     WSJArticleIE,

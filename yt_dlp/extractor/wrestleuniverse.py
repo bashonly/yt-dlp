@@ -13,9 +13,113 @@ from ..utils import (
 )
 
 
-class WrestleUniverseIE(InfoExtractor):
-    _VALID_URL = r'https?://(?:www\.)?wrestle-universe\.com/(?:(?P<lang>[\w-]+)/)?lives/(?P<id>\w+)'
+class WrestleUniverseBaseIE(InfoExtractor):
+    _API_PATH = 'videoEpisodes'
+
+    def _get_token_cookie(self):
+        token_cookie = self._get_cookies('https://www.wrestle-universe.com/').get('token')
+        if not token_cookie or not token_cookie.value:
+            self.raise_login_required(method='cookies')
+        return token_cookie.value
+
+    def _raise_proper_auth_error(self):
+        exp = traverse_obj(jwt_decode_hs256(self._get_token_cookie()), ('exp', {int_or_none}))
+        if not exp:
+            raise ExtractorError('There was a problem with the token cookie')
+        elif exp <= int(time.time()):
+            raise ExtractorError(
+                'Expired token. Refresh your cookies in browser and try again', expected=True)
+        raise ExtractorError(
+            'This account does not have access to the requested content', expected=True)
+
+    def _call_api(self, video_id, param='', msg='API', auth=False, data=None, query={}, fatal=True):
+        headers = {'CA-CID': ''}
+        if data:
+            headers['Content-Type'] = 'application/json;charset=utf-8'
+        if auth:
+            headers['Authorization'] = f'Bearer {self._get_token_cookie()}'
+        return self._download_json(
+            f'https://api.wrestle-universe.com/v1/{self._API_PATH}/{video_id}{param}', video_id,
+            note=f'Downloading {msg} JSON', errnote=f'Failed to download {msg} JSON',
+            data=json.dumps(data, separators=(',', ':')).encode('utf-8') if data else None,
+            headers=headers, query=query, fatal=fatal)
+
+    def _download_metadata(self, url, video_id, lang, props_key):
+        metadata = self._call_api(video_id, msg='metadata', query={'al': lang or 'ja'}, fatal=False)
+        if not metadata:
+            webpage = self._download_webpage(url, video_id)
+            nextjs_data = self._search_nextjs_data(webpage, video_id)
+            metadata = traverse_obj(nextjs_data, ('props', 'pageProps', props_key, {dict})) or {}
+        return metadata
+
+
+class WrestleUniverseVODIE(WrestleUniverseBaseIE):
+    _VALID_URL = r'https?://(?:www\.)?wrestle-universe\.com/(?:(?P<lang>\w{2})/)?videos/(?P<id>\w+)'
     _TESTS = [{
+        'url': 'https://www.wrestle-universe.com/en/videos/dp8mpjmcKfxzUhEHM2uFws',
+        'info_dict': {
+            'id': 'dp8mpjmcKfxzUhEHM2uFws',
+            'ext': 'mp4',
+            'title': 'The 3rd “Futari wa Princess” Max Heart Tournament',
+            'description': 'md5:318d5061e944797fbbb81d5c7dd00bf5',
+            'location': '埼玉・春日部ふれあいキューブ',
+            'channel': 'tjpw',
+            'duration': 7119,
+            'timestamp': 1674979200,
+            'upload_date': '20230129',
+            'thumbnail': 'https://image.asset.wrestle-universe.com/8FjD67P8rZc446RBQs5RBN/8FjD67P8rZc446RBQs5RBN',
+            'chapters': 'count:7',
+            'cast': 'count:18',
+        },
+        'params': {
+            'skip_download': 'm3u8',
+        },
+    }]
+
+    def _real_extract(self, url):
+        lang, video_id = self._match_valid_url(url).group('lang', 'id')
+        metadata = self._download_metadata(url, video_id, lang, 'videoEpisodeFallbackData')
+
+        info = traverse_obj(metadata, {
+            'title': ('displayName', {str}),
+            'description': ('description', {str}),
+            'channel': ('labels', 'group', {str}),
+            'location': ('labels', 'venue', {str}),
+            'timestamp': ('watchStartTime', {int_or_none}),
+            'thumbnail': ('keyVisualUrl', {url_or_none}),
+            'cast': ('casts', ..., 'displayName', {str}),
+            'chapters': ('videoChapters', ..., {
+                'title': ('displayName', {str}),
+                'start_time': ('start', {int}),
+                'end_time': ('end', {int}),
+            }),
+            'duration': ('duration', {int}),
+        }) or {}
+
+        video_data = self._call_api(video_id, ':watch', 'watch', auth=True, data={
+            # 'deviceId' is required if ignoreDeviceRestriction is False
+            'ignoreDeviceRestriction': True,
+        })
+        if video_data.get('canWatch') is False:
+            self._raise_proper_auth_error()
+
+        hls_url = traverse_obj(video_data, (
+            (('protocolHls', 'url'), ('chromecastUrls', ...)), {url_or_none}), get_all=False)
+        if not hls_url:
+            self.raise_no_formats('No supported formats found')
+        formats = self._extract_m3u8_formats(hls_url, video_id, 'mp4', m3u8_id='hls')
+
+        return {
+            'id': video_id,
+            'formats': formats,
+            **info,
+        }
+
+
+class WrestleUniversePPVIE(WrestleUniverseBaseIE):
+    _VALID_URL = r'https?://(?:www\.)?wrestle-universe\.com/(?:(?P<lang>\w{2})/)?lives/(?P<id>\w+)'
+    _TESTS = [{
+        'note': 'HLS AES-128 key obtained via API',
         'url': 'https://www.wrestle-universe.com/en/lives/buH9ibbfhdJAY4GKZcEuJX',
         'info_dict': {
             'id': 'buH9ibbfhdJAY4GKZcEuJX',
@@ -35,25 +139,28 @@ class WrestleUniverseIE(InfoExtractor):
         'params': {
             'skip_download': 'm3u8',
         },
+    }, {
+        'note': 'unencrypted HLS',
+        'url': 'https://www.wrestle-universe.com/en/lives/wUG8hP5iApC63jbtQzhVVx',
+        'info_dict': {
+            'id': 'wUG8hP5iApC63jbtQzhVVx',
+            'ext': 'mp4',
+            'title': 'GRAND PRINCESS \'22',
+            'description': 'md5:e4f43d0d4262de3952ff34831bc99858',
+            'channel': 'tjpw',
+            'location': '東京・両国国技館',
+            'duration': 18044,
+            'timestamp': 1647665400,
+            'upload_date': '20220319',
+            'thumbnail': 'https://image.asset.wrestle-universe.com/i8jxSTCHPfdAKD4zN41Psx/i8jxSTCHPfdAKD4zN41Psx',
+            'thumbnails': 'count:3',
+        },
+        'params': {
+            'skip_download': 'm3u8',
+        },
     }]
 
-    def _get_token_cookie(self):
-        token_cookie = self._get_cookies('https://www.wrestle-universe.com/').get('token')
-        if not token_cookie or not token_cookie.value:
-            self.raise_login_required(method='cookies')
-        return token_cookie.value
-
-    def _call_api(self, video_id, path='', msg='API', auth=False, data=None, query={}, fatal=True):
-        headers = {'CA-CID': ''}
-        if data:
-            headers['Content-Type'] = 'application/json;charset=utf-8'
-        if auth:
-            headers['Authorization'] = f'Bearer {self._get_token_cookie()}'
-        return self._download_json(
-            f'https://api.wrestle-universe.com/v1/events/{video_id}{path}', video_id,
-            note=f'Downloading {msg} JSON', errnote=f'Failed to download {msg} JSON',
-            data=json.dumps(data, separators=(',', ':')).encode('utf-8') if data else None,
-            headers=headers, query=query, fatal=fatal)
+    _API_PATH = 'events'
 
     def _call_public_key_api(self, video_id):
         # TODO: Fix imports using `dependencies.cryptodome`
@@ -74,8 +181,7 @@ class WrestleUniverseIE(InfoExtractor):
 
         token = base64.b64encode(private_key.public_key().export_key('DER')).decode()
         api_json = self._call_api(video_id, ':watchArchive', 'watch archive', auth=True, data={
-            # deviceId is a random uuidv4 generated at login; not required but may be in future
-            # 'deviceId': self._DEVICE_ID,
+            # 'deviceId' is a random uuidv4 generated at login; not required but may be in future
             'token': token,
             'method': 1,
         })
@@ -83,14 +189,7 @@ class WrestleUniverseIE(InfoExtractor):
 
     def _real_extract(self, url):
         lang, video_id = self._match_valid_url(url).group('lang', 'id')
-        if not lang:
-            lang = 'ja'
-
-        metadata = self._call_api(video_id, msg='metadata', query={'al': lang}, fatal=False)
-        if not metadata:
-            webpage = self._download_webpage(url, video_id)
-            nextjs_data = self._search_nextjs_data(webpage, video_id)
-            metadata = traverse_obj(nextjs_data, ('props', 'pageProps', 'eventFallbackData', {dict}))
+        metadata = self._download_metadata(url, video_id, lang, 'eventFallbackData')
 
         info = traverse_obj(metadata, {
             'title': ('displayName', {str}),
@@ -99,7 +198,7 @@ class WrestleUniverseIE(InfoExtractor):
             'location': ('labels', 'venue', {str}),
             'timestamp': ('startTime', {int_or_none}),
             'thumbnails': (('keyVisualUrl', 'alterKeyVisualUrl', 'heroKeyVisualUrl'), {url_or_none}, {'url': None}),
-        })
+        }) or {}
 
         ended_time = traverse_obj(metadata, ('endedTime', {int_or_none}))
         if info.get('timestamp') and ended_time:
@@ -107,14 +206,7 @@ class WrestleUniverseIE(InfoExtractor):
 
         video_data, decrypt = self._call_public_key_api(video_id)
         if video_data.get('canWatch') is False:
-            exp = traverse_obj(jwt_decode_hs256(self._get_token_cookie()), ('exp', {int_or_none}))
-            if not exp:
-                raise ExtractorError('There was a problem with the token cookie')
-            elif exp <= int(time.time()):
-                raise ExtractorError(
-                    'Expired token. Refresh your cookies in browser and try again', expected=True)
-            raise ExtractorError(
-                'This account does not have access to the requested content', expected=True)
+            self._raise_proper_auth_error()
 
         hls_url = traverse_obj(video_data, (
             ('hls', None), ('urls', 'chromecastUrls'), ..., {url_or_none}), get_all=False)
@@ -122,7 +214,7 @@ class WrestleUniverseIE(InfoExtractor):
             self.raise_no_formats('No supported formats found')
         formats = self._extract_m3u8_formats(hls_url, video_id, 'mp4', m3u8_id='hls', live=True)
         for f in formats:
-            # bitrates are exaggerated in master playlists, avoid wrong/huge filesize_approx values
+            # bitrates are exaggerated in PPV playlists, so avoid wrong/huge filesize_approx values
             if f.get('tbr'):
                 f['tbr'] = f['tbr'] // 4
 

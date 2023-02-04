@@ -16,22 +16,25 @@ from ..utils import (
 class WrestleUniverseBaseIE(InfoExtractor):
     _VALID_URL_TMPL = r'https?://(?:www\.)?wrestle-universe\.com/(?:(?P<lang>\w{2})/)?%s/(?P<id>\w+)'
     _API_PATH = 'videoEpisodes'
+    _TOKEN = None
+    _TOKEN_EXPIRY = None
 
     def _get_token_cookie(self):
-        token_cookie = self._get_cookies('https://www.wrestle-universe.com/').get('token')
-        if not token_cookie or not token_cookie.value:
-            self.raise_login_required(method='cookies')
-        return token_cookie.value
+        if not self._TOKEN or not self._TOKEN_EXPIRY:
+            token_cookie = self._get_cookies('https://www.wrestle-universe.com/').get('token')
+            if not token_cookie or not token_cookie.value:
+                self.raise_login_required(method='cookies')
+            self._TOKEN = token_cookie.value
+            expiry = traverse_obj(jwt_decode_hs256(self._TOKEN), ('exp', {int_or_none}))
+            if not expiry:
+                raise ExtractorError('There was a problem with the token cookie')
+            self._TOKEN_EXPIRY = expiry
 
-    def _raise_proper_auth_error(self):
-        exp = traverse_obj(jwt_decode_hs256(self._get_token_cookie()), ('exp', {int_or_none}))
-        if not exp:
-            raise ExtractorError('There was a problem with the token cookie')
-        elif exp <= int(time.time()):
+        if self._TOKEN_EXPIRY <= int(time.time()):
             raise ExtractorError(
                 'Expired token. Refresh your cookies in browser and try again', expected=True)
-        raise ExtractorError(
-            'This account does not have access to the requested content', expected=True)
+
+        return self._TOKEN
 
     def _call_api(self, video_id, param='', msg='API', auth=False, data=None, query={}, fatal=True):
         headers = {'CA-CID': ''}
@@ -52,6 +55,15 @@ class WrestleUniverseBaseIE(InfoExtractor):
             nextjs_data = self._search_nextjs_data(webpage, video_id)
             metadata = traverse_obj(nextjs_data, ('props', 'pageProps', props_key, {dict})) or {}
         return metadata
+
+    def _get_hls_url(self, data, path):
+        hls_url = traverse_obj(data, path, get_all=False)
+        if not hls_url and not data.get('canWatch'):
+            self.raise_no_formats(
+                'This account does not have access to the requested content', expected=True)
+        elif not hls_url:
+            self.raise_no_formats('No supported formats found')
+        return hls_url
 
 
 class WrestleUniverseVODIE(WrestleUniverseBaseIE):
@@ -80,39 +92,31 @@ class WrestleUniverseVODIE(WrestleUniverseBaseIE):
     def _real_extract(self, url):
         lang, video_id = self._match_valid_url(url).group('lang', 'id')
         metadata = self._download_metadata(url, video_id, lang, 'videoEpisodeFallbackData')
-
-        info = traverse_obj(metadata, {
-            'title': ('displayName', {str}),
-            'description': ('description', {str}),
-            'channel': ('labels', 'group', {str}),
-            'location': ('labels', 'venue', {str}),
-            'timestamp': ('watchStartTime', {int_or_none}),
-            'thumbnail': ('keyVisualUrl', {url_or_none}),
-            'cast': ('casts', ..., 'displayName', {str}),
-            'chapters': ('videoChapters', ..., {
-                'title': ('displayName', {str}),
-                'start_time': ('start', {int}),
-                'end_time': ('end', {int}),
-            }),
-            'duration': ('duration', {int}),
-        }) or {}
-
         video_data = self._call_api(video_id, ':watch', 'watch', auth=True, data={
             # 'deviceId' is required if ignoreDeviceRestriction is False
             'ignoreDeviceRestriction': True,
         })
-        if not video_data.get('canWatch'):
-            self._raise_proper_auth_error()
-
-        hls_url = traverse_obj(video_data, (
-            (('protocolHls', 'url'), ('chromecastUrls', ...)), {url_or_none}), get_all=False)
-        if not hls_url:
-            self.raise_no_formats('No supported formats found')
 
         return {
             'id': video_id,
-            'formats': self._extract_m3u8_formats(hls_url, video_id, 'mp4', m3u8_id='hls'),
-            **info,
+            'formats': self._extract_m3u8_formats(self._get_hls_url(
+                video_data, ((('protocolHls', 'url'), ('chromecastUrls', ...)), {url_or_none})),
+                video_id, 'mp4', m3u8_id='hls'),
+            **traverse_obj(metadata, {
+                'title': ('displayName', {str}),
+                'description': ('description', {str}),
+                'channel': ('labels', 'group', {str}),
+                'location': ('labels', 'venue', {str}),
+                'timestamp': ('watchStartTime', {int_or_none}),
+                'thumbnail': ('keyVisualUrl', {url_or_none}),
+                'cast': ('casts', ..., 'displayName', {str}),
+                'duration': ('duration', {int}),
+                'chapters': ('videoChapters', lambda _, v: isinstance(v.get('start'), int), {
+                    'title': ('displayName', {str}),
+                    'start_time': ('start', {int}),
+                    'end_time': ('end', {int}),
+                }),
+            }),
         }
 
 
@@ -205,18 +209,13 @@ class WrestleUniversePPVIE(WrestleUniverseBaseIE):
             info['duration'] = ended_time - info['timestamp']
 
         video_data, decrypt = self._call_public_key_api(video_id)
-        if not video_data.get('canWatch'):
-            self._raise_proper_auth_error()
-
-        hls_url = traverse_obj(video_data, (
-            ('hls', None), ('urls', 'chromecastUrls'), ..., {url_or_none}), get_all=False)
-        if not hls_url:
-            self.raise_no_formats('No supported formats found')
-        formats = self._extract_m3u8_formats(hls_url, video_id, 'mp4', m3u8_id='hls', live=True)
+        formats = self._extract_m3u8_formats(self._get_hls_url(
+            video_data, (('hls', None), ('urls', 'chromecastUrls'), ..., {url_or_none})),
+            video_id, 'mp4', m3u8_id='hls', live=True)
         for f in formats:
             # bitrates are exaggerated in PPV playlists, so avoid wrong/huge filesize_approx values
             if f.get('tbr'):
-                f['tbr'] = f['tbr'] // 4
+                f['tbr'] = int(f['tbr'] / 2.5)
 
         hls_aes_key = traverse_obj(video_data, ('hls', 'key', {decrypt}))
         if not hls_aes_key and traverse_obj(video_data, ('hls', 'encryptType', {int}), default=0) > 0:

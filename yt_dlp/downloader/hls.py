@@ -8,7 +8,7 @@ from .external import FFmpegFD
 from .fragment import FragmentFD
 from .. import webvtt
 from ..dependencies import Cryptodome_AES
-from ..utils import bug_reports_message, parse_m3u8_attributes, update_url_query
+from ..utils import bug_reports_message, parse_m3u8_attributes, remove_start, update_url_query
 
 
 class HlsFD(FragmentFD):
@@ -152,14 +152,12 @@ class HlsFD(FragmentFD):
         decrypt_info = {'METHOD': 'NONE'}
         external_aes_key = info_dict.get('hls_aes_key')
         if isinstance(external_aes_key, str):
-            if external_aes_key.startswith('0x'):
-                external_aes_key = external_aes_key[2:]
+            external_aes_key = remove_start(external_aes_key, '0x')
             external_aes_key = binascii.unhexlify(external_aes_key)
             assert len(external_aes_key) in (16, 24, 32), 'Invalid length for HLS AES-128 key'
         external_aes_iv = info_dict.get('hls_aes_iv')
         if isinstance(external_aes_iv, str):
-            if external_aes_iv.startswith('0x'):
-                external_aes_iv = external_aes_iv[2:]
+            external_aes_iv = remove_start(external_aes_iv, '0x')
             external_aes_iv = binascii.unhexlify(external_aes_iv.zfill(32))
         byte_range = {}
         discontinuity_count = 0

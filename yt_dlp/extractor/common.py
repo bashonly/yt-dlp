@@ -225,7 +225,7 @@ class InfoExtractor:
                                  given in the playlist (native HLS downloader only).
                     * hls_aes_iv  The IV (as hex) to use for decrypting the HLS
                                  segments instead of the IV provided in the playlist
-                                 (native hls downloader only).
+                                 (native HLS downloader only).
                     * downloader_options  A dictionary of downloader options
                                  (For internal use only)
                                  * http_chunk_size Chunk size for HTTP downloads

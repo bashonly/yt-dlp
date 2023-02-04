@@ -15,7 +15,7 @@ from ..utils import (
 
 class WrestleUniverseBaseIE(InfoExtractor):
     _VALID_URL_TMPL = r'https?://(?:www\.)?wrestle-universe\.com/(?:(?P<lang>\w{2})/)?%s/(?P<id>\w+)'
-    _API_PATH = 'videoEpisodes'
+    _API_PATH = None
     _TOKEN = None
     _TOKEN_EXPIRY = None
 
@@ -48,6 +48,31 @@ class WrestleUniverseBaseIE(InfoExtractor):
             data=json.dumps(data, separators=(',', ':')).encode('utf-8') if data else None,
             headers=headers, query=query, fatal=fatal)
 
+    def _call_encrypted_api(self, video_id, param='', msg='API', auth=False, data={}, query={}, fatal=True):
+        # TODO: Use `dependencies.cryptodome`
+        from Cryptodome.Cipher import PKCS1_OAEP
+        from Cryptodome.Hash import SHA1
+        from Cryptodome.PublicKey import RSA
+
+        private_key = RSA.generate(2048)
+        cipher = PKCS1_OAEP.new(private_key, hashAlgo=SHA1)
+
+        def decrypt(data):
+            if not data:
+                return None
+            try:
+                return cipher.decrypt(base64.b64decode(data)).decode()
+            except (ValueError, binascii.Error) as e:
+                raise ExtractorError(f'Could not decrypt data: {e}')
+
+        token = base64.b64encode(private_key.public_key().export_key('DER')).decode()
+        api_json = self._call_api(video_id, param, msg, auth=auth, data={
+            # 'deviceId' (random uuid4 generated at login) is not required yet
+            'token': token,
+            **data,
+        }, query=query, fatal=fatal)
+        return api_json, decrypt
+
     def _download_metadata(self, url, video_id, lang, props_key):
         metadata = self._call_api(video_id, msg='metadata', query={'al': lang or 'ja'}, fatal=False)
         if not metadata:
@@ -56,14 +81,14 @@ class WrestleUniverseBaseIE(InfoExtractor):
             metadata = traverse_obj(nextjs_data, ('props', 'pageProps', props_key, {dict})) or {}
         return metadata
 
-    def _get_hls_url(self, data, path):
+    def _get_formats(self, data, path, video_id=None):
         hls_url = traverse_obj(data, path, get_all=False)
         if not hls_url and not data.get('canWatch'):
             self.raise_no_formats(
                 'This account does not have access to the requested content', expected=True)
         elif not hls_url:
             self.raise_no_formats('No supported formats found')
-        return hls_url
+        return self._extract_m3u8_formats(hls_url, video_id, 'mp4', m3u8_id='hls', live=True)
 
 
 class WrestleUniverseVODIE(WrestleUniverseBaseIE):
@@ -89,6 +114,8 @@ class WrestleUniverseVODIE(WrestleUniverseBaseIE):
         },
     }]
 
+    _API_PATH = 'videoEpisodes'
+
     def _real_extract(self, url):
         lang, video_id = self._match_valid_url(url).group('lang', 'id')
         metadata = self._download_metadata(url, video_id, lang, 'videoEpisodeFallbackData')
@@ -99,9 +126,8 @@ class WrestleUniverseVODIE(WrestleUniverseBaseIE):
 
         return {
             'id': video_id,
-            'formats': self._extract_m3u8_formats(self._get_hls_url(
-                video_data, ((('protocolHls', 'url'), ('chromecastUrls', ...)), {url_or_none})),
-                video_id, 'mp4', m3u8_id='hls'),
+            'formats': self._get_formats(video_data, (
+                (('protocolHls', 'url'), ('chromecastUrls', ...)), {url_or_none}), video_id),
             **traverse_obj(metadata, {
                 'title': ('displayName', {str}),
                 'description': ('description', {str}),
@@ -166,31 +192,6 @@ class WrestleUniversePPVIE(WrestleUniverseBaseIE):
 
     _API_PATH = 'events'
 
-    def _call_public_key_api(self, video_id):
-        # TODO: Fix imports using `dependencies.cryptodome`
-        from Cryptodome.Cipher import PKCS1_OAEP
-        from Cryptodome.Hash import SHA1
-        from Cryptodome.PublicKey import RSA
-
-        private_key = RSA.generate(2048)
-        cipher = PKCS1_OAEP.new(private_key, hashAlgo=SHA1)
-
-        def decrypt(data):
-            if not data:
-                return None
-            try:
-                return cipher.decrypt(base64.b64decode(data)).decode()
-            except (ValueError, binascii.Error) as e:
-                raise ExtractorError(f'Could not decrypt data: {e}')
-
-        token = base64.b64encode(private_key.public_key().export_key('DER')).decode()
-        api_json = self._call_api(video_id, ':watchArchive', 'watch archive', auth=True, data={
-            # 'deviceId' is a random uuidv4 generated at login; not required but may be in future
-            'token': token,
-            'method': 1,
-        })
-        return api_json, decrypt
-
     def _real_extract(self, url):
         lang, video_id = self._match_valid_url(url).group('lang', 'id')
         metadata = self._download_metadata(url, video_id, lang, 'eventFallbackData')
@@ -202,16 +203,16 @@ class WrestleUniversePPVIE(WrestleUniverseBaseIE):
             'location': ('labels', 'venue', {str}),
             'timestamp': ('startTime', {int_or_none}),
             'thumbnails': (('keyVisualUrl', 'alterKeyVisualUrl', 'heroKeyVisualUrl'), {url_or_none}, {'url': None}),
-        }) or {}
+        })
 
         ended_time = traverse_obj(metadata, ('endedTime', {int_or_none}))
         if info.get('timestamp') and ended_time:
             info['duration'] = ended_time - info['timestamp']
 
-        video_data, decrypt = self._call_public_key_api(video_id)
-        formats = self._extract_m3u8_formats(self._get_hls_url(
-            video_data, (('hls', None), ('urls', 'chromecastUrls'), ..., {url_or_none})),
-            video_id, 'mp4', m3u8_id='hls', live=True)
+        video_data, decrypt = self._call_encrypted_api(
+            video_id, ':watchArchive', 'watch archive', auth=True, data={'method': 1})
+        formats = self._get_formats(video_data, (
+            ('hls', None), ('urls', 'chromecastUrls'), ..., {url_or_none}), video_id)
         for f in formats:
             # bitrates are exaggerated in PPV playlists, so avoid wrong/huge filesize_approx values
             if f.get('tbr'):

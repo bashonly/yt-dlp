@@ -14,6 +14,7 @@ from ..utils import (
 
 
 class WrestleUniverseBaseIE(InfoExtractor):
+    _VALID_URL_TMPL = r'https?://(?:www\.)?wrestle-universe\.com/(?:(?P<lang>\w{2})/)?%s/(?P<id>\w+)'
     _API_PATH = 'videoEpisodes'
 
     def _get_token_cookie(self):
@@ -54,7 +55,7 @@ class WrestleUniverseBaseIE(InfoExtractor):
 
 
 class WrestleUniverseVODIE(WrestleUniverseBaseIE):
-    _VALID_URL = r'https?://(?:www\.)?wrestle-universe\.com/(?:(?P<lang>\w{2})/)?videos/(?P<id>\w+)'
+    _VALID_URL = WrestleUniverseBaseIE._VALID_URL_TMPL % 'videos'
     _TESTS = [{
         'url': 'https://www.wrestle-universe.com/en/videos/dp8mpjmcKfxzUhEHM2uFws',
         'info_dict': {
@@ -100,24 +101,23 @@ class WrestleUniverseVODIE(WrestleUniverseBaseIE):
             # 'deviceId' is required if ignoreDeviceRestriction is False
             'ignoreDeviceRestriction': True,
         })
-        if video_data.get('canWatch') is False:
+        if not video_data.get('canWatch'):
             self._raise_proper_auth_error()
 
         hls_url = traverse_obj(video_data, (
             (('protocolHls', 'url'), ('chromecastUrls', ...)), {url_or_none}), get_all=False)
         if not hls_url:
             self.raise_no_formats('No supported formats found')
-        formats = self._extract_m3u8_formats(hls_url, video_id, 'mp4', m3u8_id='hls')
 
         return {
             'id': video_id,
-            'formats': formats,
+            'formats': self._extract_m3u8_formats(hls_url, video_id, 'mp4', m3u8_id='hls'),
             **info,
         }
 
 
 class WrestleUniversePPVIE(WrestleUniverseBaseIE):
-    _VALID_URL = r'https?://(?:www\.)?wrestle-universe\.com/(?:(?P<lang>\w{2})/)?lives/(?P<id>\w+)'
+    _VALID_URL = WrestleUniverseBaseIE._VALID_URL_TMPL % 'lives'
     _TESTS = [{
         'note': 'HLS AES-128 key obtained via API',
         'url': 'https://www.wrestle-universe.com/en/lives/buH9ibbfhdJAY4GKZcEuJX',
@@ -205,7 +205,7 @@ class WrestleUniversePPVIE(WrestleUniverseBaseIE):
             info['duration'] = ended_time - info['timestamp']
 
         video_data, decrypt = self._call_public_key_api(video_id)
-        if video_data.get('canWatch') is False:
+        if not video_data.get('canWatch'):
             self._raise_proper_auth_error()
 
         hls_url = traverse_obj(video_data, (

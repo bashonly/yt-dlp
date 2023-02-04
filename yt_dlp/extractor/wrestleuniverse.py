@@ -36,19 +36,19 @@ class WrestleUniverseBaseIE(InfoExtractor):
 
         return self._TOKEN
 
-    def _call_api(self, video_id, param='', msg='API', auth=False, data=None, query={}, fatal=True):
+    def _call_api(self, video_id, param='', msg='API', auth=True, data=None, query={}, fatal=True):
         headers = {'CA-CID': ''}
         if data:
             headers['Content-Type'] = 'application/json;charset=utf-8'
+            data = json.dumps(data, separators=(',', ':')).encode('utf-8')
         if auth:
             headers['Authorization'] = f'Bearer {self._get_token_cookie()}'
         return self._download_json(
             f'https://api.wrestle-universe.com/v1/{self._API_PATH}/{video_id}{param}', video_id,
             note=f'Downloading {msg} JSON', errnote=f'Failed to download {msg} JSON',
-            data=json.dumps(data, separators=(',', ':')).encode('utf-8') if data else None,
-            headers=headers, query=query, fatal=fatal)
+            data=data, headers=headers, query=query, fatal=fatal)
 
-    def _call_encrypted_api(self, video_id, param='', msg='API', auth=False, data={}, query={}, fatal=True):
+    def _call_encrypted_api(self, video_id, param='', msg='API', data={}, query={}, fatal=True):
         # TODO: Use `dependencies.cryptodome`
         from Cryptodome.Cipher import PKCS1_OAEP
         from Cryptodome.Hash import SHA1
@@ -66,7 +66,7 @@ class WrestleUniverseBaseIE(InfoExtractor):
                 raise ExtractorError(f'Could not decrypt data: {e}')
 
         token = base64.b64encode(private_key.public_key().export_key('DER')).decode()
-        api_json = self._call_api(video_id, param, msg, auth=auth, data={
+        api_json = self._call_api(video_id, param, msg, data={
             # 'deviceId' (random uuid4 generated at login) is not required yet
             'token': token,
             **data,
@@ -74,7 +74,7 @@ class WrestleUniverseBaseIE(InfoExtractor):
         return api_json, decrypt
 
     def _download_metadata(self, url, video_id, lang, props_key):
-        metadata = self._call_api(video_id, msg='metadata', query={'al': lang or 'ja'}, fatal=False)
+        metadata = self._call_api(video_id, msg='metadata', query={'al': lang or 'ja'}, auth=False, fatal=False)
         if not metadata:
             webpage = self._download_webpage(url, video_id)
             nextjs_data = self._search_nextjs_data(webpage, video_id)
@@ -119,7 +119,7 @@ class WrestleUniverseVODIE(WrestleUniverseBaseIE):
     def _real_extract(self, url):
         lang, video_id = self._match_valid_url(url).group('lang', 'id')
         metadata = self._download_metadata(url, video_id, lang, 'videoEpisodeFallbackData')
-        video_data = self._call_api(video_id, ':watch', 'watch', auth=True, data={
+        video_data = self._call_api(video_id, ':watch', 'watch', data={
             # 'deviceId' is required if ignoreDeviceRestriction is False
             'ignoreDeviceRestriction': True,
         })
@@ -210,7 +210,7 @@ class WrestleUniversePPVIE(WrestleUniverseBaseIE):
             info['duration'] = ended_time - info['timestamp']
 
         video_data, decrypt = self._call_encrypted_api(
-            video_id, ':watchArchive', 'watch archive', auth=True, data={'method': 1})
+            video_id, ':watchArchive', 'watch archive', data={'method': 1})
         formats = self._get_formats(video_data, (
             ('hls', None), ('urls', 'chromecastUrls'), ..., {url_or_none}), video_id)
         for f in formats:

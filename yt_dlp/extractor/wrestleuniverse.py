@@ -127,7 +127,7 @@ class WrestleUniverseIE(InfoExtractor):
                 f['tbr'] = f['tbr'] // 4
 
         hls_aes_key = traverse_obj(video_data, ('hls', 'key', {decrypt}))
-        if not hls_aes_key and traverse_obj(video_data, ('hls', 'encryptType', {int_or_none})) > 0:
+        if not hls_aes_key and traverse_obj(video_data, ('hls', 'encryptType', {int}), default=0) > 0:
             self.report_warning('HLS AES-128 key was not found in API response')
 
         return {

@@ -812,6 +812,9 @@ class VimeoWatchLaterIE(VimeoPlaylistBaseIE):
     _TESTS = [{
         'url': 'https://vimeo.com/watchlater',
         'only_matching': True,
+    }, {
+        'url': ':vimeowatchlater',
+        'only_matching': True,
     }]
 
 

@@ -771,7 +771,7 @@ class VimeoChannelIE(VimeoPlaylistBaseIE):
 
 class VimeoUserIE(VimeoPlaylistBaseIE):
     IE_NAME = 'vimeo:user'
-    _VALID_URL = r'https?://(?:www\.)?vimeo\.com/(?!(?:\d+|watchlater|moogaloop)(?:$|[?#/]))(?P<id>[^/?#]+)(?:/videos)?/?(?:$|[?#])'
+    _VALID_URL = r'https?://(?:www\.)?vimeo\.com/(?!(?:\d+|watchlater|moogaloop\.swf)(?:$|[?#/]))(?P<id>[^/?#]+)(?:/videos)?/?(?:$|[?#])'
     _TESTS = [{
         'url': 'https://vimeo.com/nkistudio/videos',
         'info_dict': {

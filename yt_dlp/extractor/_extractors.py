@@ -2152,7 +2152,7 @@ from .vimeo import (
     VimeoAlbumIE,
     VimeoChannelIE,
     VimeoGroupsIE,
-    VimeoLegacyIE,
+    VimeoLegacyEmbedIE,
     VimeoLikesIE,
     VimeoOndemandIE,
     VimeoPlayerIE,

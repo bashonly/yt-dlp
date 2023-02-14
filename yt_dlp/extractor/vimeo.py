@@ -453,7 +453,7 @@ class VimeoPlayerIE(VimeoBaseIE):
 class VimeoReviewIE(InfoExtractor):
     IE_NAME = 'vimeo:review'
     IE_DESC = 'Review pages on vimeo'
-    _VALID_URL = r'https?://(?:www\.)?vimeo\.com/[^/]/review/(?P<id>[0-9]+)/[0-9a-f]{10}'
+    _VALID_URL = r'https?://(?:www\.)?vimeo\.com/[^/?#]+/review/(?P<id>[0-9]+)/[0-9a-f]{10}'
     _TESTS = [{
         'url': 'https://vimeo.com/user21297594/review/75524534/3c257a1b5d',
         'md5': 'c507a72f780cacc12b2248bb4006d253',

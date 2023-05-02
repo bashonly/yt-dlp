@@ -30,11 +30,66 @@ from ..utils import (
 
 
 class TwitterBaseIE(InfoExtractor):
+    _NETRC_MACHINE = 'twitter'
     _API_BASE = 'https://api.twitter.com/1.1/'
     _GRAPHQL_API_BASE = 'https://twitter.com/i/api/graphql/'
     _BASE_REGEX = r'https?://(?:(?:www|m(?:obile)?)\.)?(?:twitter\.com|twitter3e4tixl4xyajtrzo62zg5vztmjuricljdp2c5kshju4avyoid\.onion)/'
     _AUTH = {'Authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'}
     _guest_token = None
+
+    _LOGIN_INIT_DATA = json.dumps({
+        'input_flow_data': {
+            'flow_context': {
+                'debug_overrides': {},
+                'start_location': {
+                    'location': 'unknown'
+                }
+            }
+        },
+        'subtask_versions': {
+            'action_list': 2,
+            'alert_dialog': 1,
+            'app_download_cta': 1,
+            'check_logged_in_account': 1,
+            'choice_selection': 3,
+            'contacts_live_sync_permission_prompt': 0,
+            'cta': 7,
+            'email_verification': 2,
+            'end_flow': 1,
+            'enter_date': 1,
+            'enter_email': 2,
+            'enter_password': 5,
+            'enter_phone': 2,
+            'enter_recaptcha': 1,
+            'enter_text': 5,
+            'enter_username': 2,
+            'generic_urt': 3,
+            'in_app_notification': 1,
+            'interest_picker': 3,
+            'js_instrumentation': 1,
+            'menu_dialog': 1,
+            'notifications_permission_prompt': 2,
+            'open_account': 2,
+            'open_home_timeline': 1,
+            'open_link': 1,
+            'phone_verification': 4,
+            'privacy_options': 1,
+            'security_key': 3,
+            'select_avatar': 4,
+            'select_banner': 2,
+            'settings_list': 7,
+            'show_code': 1,
+            'sign_up': 2,
+            'sign_up_review': 4,
+            'tweet_selection_urt': 1,
+            'update_users': 1,
+            'upload_media': 1,
+            'user_recommendations_list': 4,
+            'user_recommendations_urt': 1,
+            'wait_spinner': 3,
+            'web_modal': 1
+        }
+    }, separators=(',', ':')).encode()
 
     def _extract_variant_formats(self, variant, video_id):
         variant_url = variant.get('url')
@@ -90,14 +145,90 @@ class TwitterBaseIE(InfoExtractor):
     def is_logged_in(self):
         return bool(self._get_cookies(self._API_BASE).get('auth_token'))
 
-    def _call_api(self, path, video_id, query={}, graphql=False):
-        cookies = self._get_cookies(self._API_BASE)
+    def _fetch_guest_token(self, headers, display_id):
+        headers.pop('x-guest-token', None)
+        self._guest_token = traverse_obj(self._download_json(
+            self._API_BASE + 'guest/activate.json', display_id,
+            'Downloading guest token', data=b'', headers=headers), 'guest_token')
+        if not self._guest_token:
+            raise ExtractorError('Could not retrieve guest token')
+
+    def _set_base_headers(self):
         headers = self._AUTH.copy()
+        csrf_token = try_call(lambda: self._get_cookies(self._API_BASE)['ct0'].value)
+        if csrf_token:
+            headers['x-csrf-token'] = csrf_token
+        return headers
 
-        csrf_cookie = cookies.get('ct0')
-        if csrf_cookie:
-            headers['x-csrf-token'] = csrf_cookie.value
+    def _build_login_json(self, flow_token, *subtask_inputs):
+        return json.dumps({
+            'flow_token': flow_token,
+            'subtask_inputs': [*subtask_inputs]
+        }, separators=(',', ':')).encode()
 
+    def _call_login_api(self, note, headers, query={}, data=None, token_only=True):
+        response = self._download_json(
+            f'{self._API_BASE}onboarding/task.json', None, note,
+            headers=headers, query=query, data=data, expected_status=400)  # TODO: other statuses?
+        error = traverse_obj(response, ('errors', 0, 'message', {str}))
+        if error:
+            raise ExtractorError(f'Login failed, Twitter API says: {error}', expected=True)
+        elif traverse_obj(response, 'status') != 'success':
+            raise ExtractorError('Login was unsuccessful')
+        return response['flow_token'] if token_only else response
+
+    def _perform_login(self, username, password):
+        if self.is_logged_in:
+            return
+
+        self._request_webpage('https://twitter.com/', None, 'Requesting cookies')
+        headers = self._set_base_headers()
+        self._fetch_guest_token(headers, None)
+        headers.update({
+            'content-type': 'application/json',
+            'x-guest-token': self._guest_token,
+            'x-twitter-client-language': 'en',
+            'x-twitter-active-user': 'yes',
+            'Referer': 'https://twitter.com/',
+            'Origin': 'https://twitter.com',
+        })
+
+        flow_token = self._call_login_api(
+            'Retrieving flow token', headers, query={'flow_name': 'login'}, data=self._LOGIN_INIT_DATA)
+
+        # TODO: do the anti-bot stuff here
+        anti_bot_data = self._build_login_json(flow_token, {})
+        user_token = self._call_login_api('Requesting username flow token', headers, data=anti_bot_data)
+
+        pass_token = self._call_login_api(
+            'Submitting username', headers, data=self._build_login_json(user_token, {
+                'subtask_id': 'LoginEnterUserIdentifierSSO',
+                'settings_list': {
+                    'setting_responses': [{
+                        'key': 'user_identifier',
+                        'response_data': {
+                            'text_data': {
+                                'result': username
+                            }
+                        }
+                    }],
+                    'link': 'next_link'
+                }
+            }))
+
+        self._call_login_api(
+            'Logging in', headers, data=self._build_login_json(pass_token, {
+                'subtask_id': 'LoginEnterPassword',
+                'enter_password': {
+                    'password': password,
+                    'link': 'next_link'
+                }
+            }), token_only=False)
+
+        # TODO: possibly set cookie(s) or check other value(s) to determine success
+
+    def _call_api(self, path, video_id, query={}, graphql=False):
+        headers = self._set_base_headers()
         if self.is_logged_in:
             headers.update({
                 'x-twitter-auth-type': 'OAuth2Session',
@@ -106,15 +237,10 @@ class TwitterBaseIE(InfoExtractor):
             })
 
         for first_attempt in (True, False):
-            if not self.is_logged_in and not self._guest_token:
-                headers.pop('x-guest-token', None)
-                self._guest_token = traverse_obj(self._download_json(
-                    f'{self._API_BASE}guest/activate.json', video_id,
-                    'Downloading guest token', data=b'', headers=headers), 'guest_token')
-            if self._guest_token:
+            if not self.is_logged_in:
+                if not self._guest_token:
+                    self._fetch_guest_token(headers, video_id)
                 headers['x-guest-token'] = self._guest_token
-            elif not self.is_logged_in:
-                raise ExtractorError('Could not retrieve guest token')
 
             allowed_status = {400, 401, 403, 404} if graphql else {403}
             result = self._download_json(

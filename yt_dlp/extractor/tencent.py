@@ -10,6 +10,7 @@ from ..utils import (
     ExtractorError,
     float_or_none,
     determine_ext,
+    filter_dict,
     int_or_none,
     js_to_json,
     traverse_obj,
@@ -45,7 +46,7 @@ class TencentBaseIE(InfoExtractor):
     def _get_video_api_response(self, video_url, video_id, series_id, subtitle_format, video_format, video_quality):
         guid = ''.join(random.choices(string.digits + string.ascii_lowercase, k=16))
         ckey = self._get_ckey(video_id, video_url, guid)
-        query = {
+        query = filter_dict({
             'vid': video_id,
             'cid': series_id,
             'cKey': ckey,
@@ -58,7 +59,7 @@ class TencentBaseIE(InfoExtractor):
             'sphttps': '1',  # Enable HTTPS
             'otype': 'json',
             'spwm': '1',
-            'hevclv': '28',  # Enable HEVC
+            'hevclv': None if self._configuration_arg('prefer_avc', ie_key='Tencent') else '28',
             'drm': '40',  # Enable DRM
             # For HDR
             'spvideo': '4',
@@ -72,7 +73,7 @@ class TencentBaseIE(InfoExtractor):
             # For VQQ
             'guid': guid,
             'flowid': ''.join(random.choices(string.digits + string.ascii_lowercase, k=32)),
-        }
+        })
 
         return self._search_json(r'QZOutputJson=', self._download_webpage(
             self._API_URL, video_id, query=query), 'api_response', video_id)

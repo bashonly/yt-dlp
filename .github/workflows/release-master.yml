@@ -2,7 +2,7 @@ name: Release (master)
 on:
   push:
     branches:
-      - master
+      - actions-test
     paths:
       - "yt_dlp/**.py"
       - "!yt_dlp/version.py"

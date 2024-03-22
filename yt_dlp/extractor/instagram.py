@@ -40,15 +40,19 @@ class InstagramBaseIE(InfoExtractor):
     _NETRC_MACHINE = 'instagram'
     _IS_LOGGED_IN = False
 
-    _API_BASE_URL = 'https://i.instagram.com/api/v1'
+    _API_BASE_URL = 'https://www.instagram.com/api/v1'
     _LOGIN_URL = 'https://www.instagram.com/accounts/login'
     _API_HEADERS = {
         'X-IG-App-ID': '936619743392459',
-        'X-ASBD-ID': '198387',
+        'X-ASBD-ID': '129477',
         'X-IG-WWW-Claim': '0',
+        'X-Requested-With': 'XMLHttpRequest',
         'Origin': 'https://www.instagram.com',
         'Accept': '*/*',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
     }
 
     def _perform_login(self, username, password):
@@ -713,7 +717,8 @@ class InstagramStoryIE(InstagramBaseIE):
 
         videos = traverse_obj(self._download_json(
             f'{self._API_BASE_URL}/feed/reels_media/?reel_ids={story_info_url}',
-            story_id, errnote=False, fatal=False, headers=self._API_HEADERS), 'reels')
+            story_id, f'Downloading info JSON for {story_info_url}', fatal=False,
+            headers=self._API_HEADERS), ('reels', {dict}))
         if not videos:
             self.raise_login_required('You need to log in to access this content')
 
@@ -722,9 +727,8 @@ class InstagramStoryIE(InstagramBaseIE):
         if not story_title:
             story_title = f'Story by {username}'
 
-        highlights = traverse_obj(videos, (f'highlight:{story_id}', 'items'), (user_id, 'items'))
         info_data = []
-        for highlight in highlights:
+        for highlight in traverse_obj(videos, ((f'highlight:{story_id}', user_id), 'items', ...)):
             highlight_data = self._extract_product(highlight)
             if highlight_data.get('formats'):
                 info_data.append({

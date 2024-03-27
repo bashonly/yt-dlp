@@ -37,13 +37,15 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         # CPython 3.8 is in quick-test
-        python-version: ['3.9', '3.10', '3.11', '3.12', pypy-3.8, pypy-3.10]
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13-dev', pypy-3.8, pypy-3.10]
         include:
         # atleast one of each CPython/PyPy tests must be in windows
         - os: windows-latest
           python-version: '3.8'
         - os: windows-latest
           python-version: '3.12'
+        - os: windows-latest
+          python-version: '3.13-dev'
         - os: windows-latest
           python-version: pypy-3.9
     steps:

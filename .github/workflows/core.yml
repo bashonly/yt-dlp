@@ -55,7 +55,9 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install test requirements
-      run: python3 ./devscripts/install_deps.py --include test --include curl-cffi
+      run: |
+        python3 -m pip install -U --pre "cffi==1.17.0rc1"
+        python3 ./devscripts/install_deps.py --include test --include curl-cffi
     - name: Run tests
       continue-on-error: False
       run: |

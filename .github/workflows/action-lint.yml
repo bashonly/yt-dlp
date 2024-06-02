@@ -1,0 +1,30 @@
+name: Action Lint
+on:
+  push:
+    paths:
+      - .github/workflows/*.yml
+  pull_request:
+    paths:
+      - .github/workflows/*.yml
+permissions:
+  contents: read
+
+jobs:
+  lint-workflows:
+    name: Lint Workflows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install requirements
+        env:
+          VERSION: 1.7.1
+        run: |
+          sudo apt update && sudo apt -y install shellcheck
+          url="https://github.com/rhysd/actionlint/releases/download/v${VERSION}/actionlint_${VERSION}_linux_amd64.tar.gz"
+          curl -L "${url}" | tar xvz actionlint
+          chmod +x actionlint
+      - name: Run actionlint
+        env:
+          SHELLCHECK_OPTS: -e SC1090,SC2034,SC2078
+        run: |
+          ./actionlint -color

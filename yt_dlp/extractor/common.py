@@ -547,6 +547,30 @@ class InfoExtractor:
 
     The _WORKING attribute should be set to False for broken IEs
     in order to warn the users and skip the tests.
+
+    The _SLEEP_INTERVAL attribute may be an int or float value
+    in seconds for an extractor-specific sleep interval before each download
+    (when used alone) or a lower bound of a range for randomized sleep before
+    each download (when set along with _SLEEP_INTERVAL_MAX).
+    This default will be overridden if the user passes the
+    --sleep-interval option.
+
+    The _SLEEP_INTERVAL_MAX attribute may be an int or float value
+    in seconds for an extractor-specific upper bound of a range for
+    randomized sleep before each download. _SLEEP_INTERVAL may be set
+    as the lower bound of the range, or else will default to 0.
+    This max sleep interval default will be overridden if the user passes the
+    --max-sleep-interval option.
+
+    The _SLEEP_INTERVAL_SUBTITLES attribute may be an int or float value
+    in seconds for an extractor-specific sleep interval before each subtitles
+    download. This default will be overridden if the user passes the
+    --sleep-subtitles option.
+
+    The _SLEEP_INTERVAL_REQUESTS attribute may be an int or float value
+    in seconds for an extractor-specific sleep interval between requests.
+    This default will be overridden if the user passes the
+    --sleep-requests option.
     """
 
     _ready = False
@@ -562,6 +586,10 @@ class InfoExtractor:
     SEARCH_KEY = None
     _VALID_URL = None
     _EMBED_REGEX = []
+    _SLEEP_INTERVAL = 0
+    _SLEEP_INTERVAL_MAX = 0
+    _SLEEP_INTERVAL_SUBTITLES = 0
+    _SLEEP_INTERVAL_REQUESTS = 0
 
     def _login_hint(self, method=NO_DEFAULT, netrc=None):
         password_hint = f'--username and --password, --netrc-cmd, or --netrc ({netrc or self._NETRC_MACHINE}) to provide account credentials'
@@ -582,6 +610,8 @@ class InfoExtractor:
         self._x_forwarded_for_ip = None
         self._printed_messages = set()
         self.set_downloader(downloader)
+        if self._SLEEP_INTERVAL_MAX:
+            assert self._SLEEP_INTERVAL_MAX >= self._SLEEP_INTERVAL
 
     @classmethod
     def _match_valid_url(cls, url):
@@ -838,9 +868,16 @@ class InfoExtractor:
         See _download_webpage docstring for arguments specification.
         """
         if not self._downloader._first_webpage_request:
-            sleep_interval = self.get_param('sleep_interval_requests') or 0
+            if self.get_param('sleep_interval_requests') is not None:
+                sleep_interval = self.get_param('sleep_interval_requests')
+            else:
+                sleep_interval = self._SLEEP_INTERVAL_REQUESTS
             if sleep_interval > 0:
                 self.to_screen(f'Sleeping {sleep_interval} seconds ...')
+                if self.get_param('sleep_interval_requests') is None:
+                    self.to_screen(
+                        f'This sleep interval was set by the {self.IE_NAME} extractor. '
+                        'You can override this with the --sleep-requests option', only_once=True)
                 time.sleep(sleep_interval)
         else:
             self._downloader._first_webpage_request = False

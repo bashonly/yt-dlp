@@ -453,14 +453,40 @@ class FileDownloader:
                 self._finish_multiline_status()
                 return True, False
 
+        ie, note = None, None
+        default_sleep, default_sleep_max, default_sleep_subs = 0, 0, 0
+        if ie_key := info_dict.get('extractor_key'):
+            with contextlib.suppress(AttributeError):
+                ie = self.ydl.get_info_extractor(ie_key)
+                default_sleep = ie._SLEEP_INTERVAL
+                default_sleep_max = ie._SLEEP_INTERVAL_MAX
+                default_sleep_subs = ie._SLEEP_INTERVAL_SUBTITLES
+
         if subtitle:
-            sleep_interval = self.params.get('sleep_interval_subtitles') or 0
+            if self.params.get('sleep_interval_subtitles') is not None:
+                sleep_interval = self.params.get('sleep_interval_subtitles')
+            else:
+                sleep_interval = default_sleep_subs
+                note = '--sleep-subtitles'
         else:
-            min_sleep_interval = self.params.get('sleep_interval') or 0
+            if self.params.get('sleep_interval') is not None:
+                min_sleep_interval = self.params.get('sleep_interval')
+                max_sleep_interval = self.params.get('max_sleep_interval')
+            else:
+                min_sleep_interval = default_sleep
+                max_sleep_interval = default_sleep_max
+                note = '--sleep-interval'
             sleep_interval = random.uniform(
-                min_sleep_interval, self.params.get('max_sleep_interval') or min_sleep_interval)
-        if sleep_interval > 0:
+                min_sleep_interval, max_sleep_interval or min_sleep_interval)
+
+        if self.ydl._first_download:
+            self.ydl._first_download = False
+        elif sleep_interval > 0:
             self.to_screen(f'[download] Sleeping {sleep_interval:.2f} seconds ...')
+            if ie and note:
+                self.to_screen(
+                    f'This sleep interval was set by the {ie.IE_NAME} extractor. '
+                    f'You can override this with the {note} option', only_once=True)
             time.sleep(sleep_interval)
 
         ret = self.real_download(filename, info_dict)

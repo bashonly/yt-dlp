@@ -610,6 +610,7 @@ class YoutubeDL:
         self._pps = {k: [] for k in POSTPROCESS_WHEN}
         self._printed_messages = set()
         self._first_webpage_request = True
+        self._first_download = True
         self._post_hooks = []
         self._progress_hooks = []
         self._postprocessor_hooks = []

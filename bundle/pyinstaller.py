@@ -35,7 +35,7 @@ def main():
     opts = [
         f'--name={name}',
         '--icon=devscripts/logo.ico',
-        '--upx-exclude=vcruntime140.dll',
+        '--noupx',
         '--noconfirm',
         '--additional-hooks-dir=yt_dlp/__pyinstaller',
         *opts,

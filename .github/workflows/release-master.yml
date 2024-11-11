@@ -2,7 +2,7 @@ name: Release (master)
 on:
   push:
     branches:
-      - master
+      - actions-test-2
     paths:
       - "yt_dlp/**.py"
       - "!yt_dlp/version.py"
@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   release:
-    if: vars.BUILD_MASTER != ''
+    if: vars.BUILD_MASTER_TEST != ''
     uses: ./.github/workflows/release.yml
     with:
       prerelease: true
@@ -44,4 +44,5 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
+          repository-url: https://test.pypi.org/legacy/
           verbose: true

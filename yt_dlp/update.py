@@ -36,9 +36,9 @@ from .version import (
 )
 
 UPDATE_SOURCES = {
-    'stable': 'yt-dlp/yt-dlp',
-    'nightly': 'yt-dlp/yt-dlp-nightly-builds',
-    'master': 'yt-dlp/yt-dlp-master-builds',
+    'stable': 'bashonly/yt-dlp',
+    'nightly': 'bashonly/yt-dlp-nightly-builds',
+    'master': 'bashonly/yt-dlp-master-builds',
 }
 REPOSITORY = UPDATE_SOURCES['stable']
 _INVERSE_UPDATE_SOURCES = {value: key for key, value in UPDATE_SOURCES.items()}

@@ -491,7 +491,12 @@ class PBSIE(InfoExtractor):
                     transform_source=strip_jsonp)
                 return getdir['mid'], presumptive_id, upload_date, description
 
-            for iframe in re.findall(r'(?s)<iframe(.+?)></iframe>', webpage):
+            iframes = traverse_obj(self._search_nextjs_data(webpage, display_id, default={}), (
+                'props', 'pageProps', 'video', 'data', 'episodes',
+                lambda _, v: v['slug'] == display_id, 'episode', 'assets',
+                lambda _, v: v['object_type'] == 'full_length', 'player_code', {str}))
+            iframes.extend(re.findall(r'(?s)<iframe(.+?)></iframe>', webpage))
+            for iframe in iframes:
                 url = self._search_regex(
                     r'src=(["\'])(?P<url>.+?partnerplayer.+?)\1', iframe,
                     'player URL', default=None, group='url')

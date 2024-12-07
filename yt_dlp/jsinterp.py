@@ -672,12 +672,15 @@ class JSInterpreter:
             return float('NaN'), should_return
 
         elif m and m.group('return'):
-            ret = local_vars.get(m.group('name'), JS_Undefined)
-            if ret is JS_Undefined:
-                try:
-                    ret = self.extract_object(m.group('name'))
-                except self.Exception:
-                    ret = JS_Undefined
+            variable = m.group('name')
+
+            ret = local_vars.get(variable, NO_DEFAULT)
+            if ret is NO_DEFAULT:
+                if variable not in self._objects:
+                    with contextlib.suppress(self.Exception):
+                        self._objects[variable] = self.extract_variable(variable, allow_recursion)
+                ret = self._objects.get(variable, JS_Undefined)
+
             return ret, should_return
 
         with contextlib.suppress(ValueError):
@@ -863,6 +866,13 @@ class JSInterpreter:
         if should_return:
             raise self.Exception('Cannot return from an expression', expr)
         return ret
+
+    def extract_variable(self, objname, allow_recursion):
+        obj_m = re.search(
+            rf'\b(?:var|const|let)\s+{objname}\s*=\s*(?P<val>[^;]+);', self.code)
+        if not obj_m:
+            raise self.Exception(f'Could not find object {objname}')
+        return self.interpret_statement(obj_m.group('val').strip(), {}, allow_recursion)[0]
 
     def extract_object(self, objname):
         _FUNC_NAME_RE = r'''(?:[a-zA-Z$0-9]+|"[a-zA-Z$0-9]+"|'[a-zA-Z$0-9]+')'''

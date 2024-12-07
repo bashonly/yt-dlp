@@ -3254,6 +3254,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             ';', code)
 
     def _extract_n_function_code(self, video_id, player_url):
+        player_url = 'https://www.youtube.com/s/player/3bb1f723/player_ias.vflset/en_US/base.js'
         player_id = self._extract_player_info(player_url)
         func_code = self.cache.load('youtube-nsig', player_id, min_ver='2024.07.09')
         jscode = func_code or self._load_player(video_id, player_url)

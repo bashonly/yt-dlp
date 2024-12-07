@@ -3248,6 +3248,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             f'Initial JS player n function list ({funcname}.{idx})')))[int(idx)]
 
     def _fixup_n_function_code(self, argnames, code):
+        return argnames, code
         return argnames, re.sub(
             rf';\s*if\s*\(\s*typeof\s+[a-zA-Z0-9_$]+\s*===?\s*(["\'])undefined\1\s*\)\s*return\s+{argnames[0]};',
             ';', code)

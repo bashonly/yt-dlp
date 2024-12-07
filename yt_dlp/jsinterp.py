@@ -95,6 +95,51 @@ def _js_ternary(cndn, if_true=True, if_false=False):
     return if_true
 
 
+def _js_unary_op(op):
+
+    def wrapped(_, a):
+        return op(a)
+
+    return wrapped
+
+
+# https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/typeof
+def _js_typeof(expr):
+    try:
+        result = {
+            JS_Undefined: 'undefined',
+            True: 'boolean',
+            False: 'boolean',
+            None: 'object',
+        }[expr]
+    except (TypeError, KeyError):
+        result = None
+    if result is None:
+        for t, n in (
+            (str, 'string'),
+            ((int, float), 'number'),
+        ):
+            if isinstance(expr, t):
+                result = n
+                break
+        else:
+            if callable(expr):
+                result = 'function'
+    # TODO: Symbol, BigInt
+    return 'object' if result is None else result
+
+
+def _strict_equals(a, b):
+    native_types = str, int, float
+    if not isinstance(a, native_types) or not isinstance(b, native_types):
+        return a is b
+    return a == b
+
+
+def _strict_not_equals(a, b):
+    return not _strict_equals(a, b)
+
+
 # Ref: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_Precedence
 _OPERATORS = {  # None => Defined in JSInterpreter._operator
     '?': None,
@@ -106,8 +151,8 @@ _OPERATORS = {  # None => Defined in JSInterpreter._operator
     '^': _js_bit_op(operator.xor),
     '&': _js_bit_op(operator.and_),
 
-    '===': operator.is_,
-    '!==': operator.is_not,
+    '===': _strict_equals,
+    '!==': _strict_not_equals,
     '==': _js_eq_op(operator.eq),
     '!=': _js_eq_op(operator.ne),
 
@@ -126,9 +171,14 @@ _OPERATORS = {  # None => Defined in JSInterpreter._operator
     '%': _js_mod,
     '/': _js_div,
     '**': _js_exp,
+
+    'void': _js_unary_op(lambda _: JS_Undefined),
+    'typeof': _js_unary_op(_js_typeof),
 }
 
 _COMP_OPERATORS = {'===', '!==', '==', '!=', '<=', '>=', '<', '>'}
+
+_UNARY_OPERATORS = {'void', 'typeof'}
 
 _NAME_RE = r'[a-zA-Z_$][\w$]*'
 _MATCHING_PARENS = dict(zip(*zip('()', '{}', '[]')))
@@ -169,7 +219,7 @@ class LocalNameSpace(collections.ChainMap):
 
 class Debugger:
     import sys
-    ENABLED = False and 'pytest' in sys.modules
+    ENABLED = True and 'pytest' in sys.modules
 
     @staticmethod
     def write(*args, level=100):
@@ -324,6 +374,23 @@ class JSInterpreter:
         except TypeError:
             return self._named_object(namespace, obj)
 
+    def handle_operators(self, expr, local_vars, allow_recursion):
+        for op in _OPERATORS:
+            separated = list(self._separate(expr, op))
+            right_expr = separated.pop()
+            while True:
+                if op in '?<>*-' and len(separated) > 1 and not separated[-1].strip():
+                    separated.pop()
+                elif not (separated and op == '?' and right_expr.startswith('.')):
+                    break
+                right_expr = f'{op}{right_expr}'
+                if op != '-':
+                    right_expr = f'{separated.pop()}{op}{right_expr}'
+            if not separated:
+                continue
+            left_val = self.interpret_expression(op.join(separated), local_vars, allow_recursion)
+            return self._operator(op, left_val, right_expr, expr, local_vars, allow_recursion), True
+
     @Debugger.wrap_interpreter
     def interpret_statement(self, stmt, local_vars, allow_recursion=100):
         if allow_recursion < 0:
@@ -374,9 +441,15 @@ class JSInterpreter:
             else:
                 raise self.Exception(f'Unsupported object {obj}', expr)
 
-        if expr.startswith('void '):
-            left = self.interpret_expression(expr[5:], local_vars, allow_recursion)
-            return None, should_return
+        for op in _UNARY_OPERATORS:
+            if not expr.startswith(op):
+                continue
+            operand = expr[len(op):]
+            if not operand or operand[0] != ' ':
+                continue
+            op_result = self.handle_operators(expr, local_vars, allow_recursion)
+            if op_result:
+                return op_result[0], should_return
 
         if expr.startswith('{'):
             inner, outer = self._separate_at_paren(expr)
@@ -552,7 +625,7 @@ class JSInterpreter:
         m = re.match(fr'''(?x)
             (?P<assign>
                 (?P<out>{_NAME_RE})(?:\[(?P<index>[^\]]+?)\])?\s*
-                (?P<op>{"|".join(map(re.escape, set(_OPERATORS) - _COMP_OPERATORS))})?
+                (?P<op>{"|".join(map(re.escape, set(_OPERATORS) - _COMP_OPERATORS - _UNARY_OPERATORS))})?
                 =(?!=)(?P<expr>.*)$
             )|(?P<return>
                 (?!if|return|true|false|null|undefined|NaN)(?P<name>{_NAME_RE})$
@@ -604,21 +677,9 @@ class JSInterpreter:
             idx = self.interpret_expression(m.group('idx'), local_vars, allow_recursion)
             return self._index(val, idx), should_return
 
-        for op in _OPERATORS:
-            separated = list(self._separate(expr, op))
-            right_expr = separated.pop()
-            while True:
-                if op in '?<>*-' and len(separated) > 1 and not separated[-1].strip():
-                    separated.pop()
-                elif not (separated and op == '?' and right_expr.startswith('.')):
-                    break
-                right_expr = f'{op}{right_expr}'
-                if op != '-':
-                    right_expr = f'{separated.pop()}{op}{right_expr}'
-            if not separated:
-                continue
-            left_val = self.interpret_expression(op.join(separated), local_vars, allow_recursion)
-            return self._operator(op, left_val, right_expr, expr, local_vars, allow_recursion), should_return
+        op_result = self.handle_operators(expr, local_vars, allow_recursion)
+        if op_result:
+            return op_result[0], should_return
 
         if m and m.group('attribute'):
             variable, member, nullish = m.group('var', 'member', 'nullish')

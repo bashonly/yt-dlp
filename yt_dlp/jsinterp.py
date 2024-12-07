@@ -672,7 +672,13 @@ class JSInterpreter:
             return float('NaN'), should_return
 
         elif m and m.group('return'):
-            return local_vars.get(m.group('name'), JS_Undefined), should_return
+            ret = local_vars.get(m.group('name'), JS_Undefined)
+            if ret is JS_Undefined:
+                try:
+                    ret = self.extract_object(m.group('name'))
+                except self.Exception:
+                    ret = JS_Undefined
+            return ret, should_return
 
         with contextlib.suppress(ValueError):
             return json.loads(js_to_json(expr, strict=True)), should_return

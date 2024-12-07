@@ -494,7 +494,12 @@ class JSInterpreter:
         md = m.groupdict() if m else {}
         if md.get('if'):
             cndn, expr = self._separate_at_paren(expr[m.end() - 1:])
-            if_expr, expr = self._separate_at_paren(expr.lstrip())
+            expr = expr.lstrip()
+            if expr.startswith('{'):
+                if_expr, expr = self._separate_at_paren(expr)
+            else:
+                # may lose ... else ... because of ???
+                if_expr, expr = self._separate_at_paren(f' {expr};', delim=';')
             # TODO: "else if" is not handled
             else_expr = None
             m = re.match(r'else\s*{', expr)

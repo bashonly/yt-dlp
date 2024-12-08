@@ -5,6 +5,8 @@ import json
 import math
 import operator
 import re
+import textwrap
+import traceback
 
 from .utils import (
     NO_DEFAULT,
@@ -105,28 +107,26 @@ def _js_unary_op(op):
 
 # https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/typeof
 def _js_typeof(expr):
-    try:
-        result = {
-            JS_Undefined: 'undefined',
-            True: 'boolean',
-            False: 'boolean',
-            None: 'object',
-        }[expr]
-    except (TypeError, KeyError):
-        result = None
-    if result is None:
-        for t, n in (
-            (str, 'string'),
-            ((int, float), 'number'),
-        ):
-            if isinstance(expr, t):
-                result = n
-                break
-        else:
-            if callable(expr):
-                result = 'function'
+    for value, name in {
+        JS_Undefined: 'undefined',
+        True: 'boolean',
+        False: 'boolean',
+        None: 'object',
+    }.items():
+        if expr is value:
+            return name
+
+    if isinstance(expr, str):
+        return 'string'
+
+    if isinstance(expr, (int, float)):
+        return 'number'
+
+    if callable(expr):
+        return 'function'
+
     # TODO: Symbol, BigInt
-    return 'object' if result is None else result
+    return 'object'
 
 
 def _strict_equals(a, b):
@@ -235,9 +235,10 @@ class Debugger:
                 ret, should_ret = f(self, stmt, local_vars, allow_recursion, *args, **kwargs)
             except Exception as e:
                 if cls.ENABLED:
-                    if isinstance(e, ExtractorError):
-                        e = e.orig_msg
-                    cls.write('=> Raises:', e, '<-|', stmt, level=allow_recursion)
+                    exc_str = e.orig_msg if isinstance(e, ExtractorError) else str(e)
+                    prefix = f'[debug] JS: {"  " * (100 - allow_recursion)}=> Raises: '
+                    trace = textwrap.indent(''.join(traceback.format_exception(e)[1:]), len(prefix) * ' ')
+                    write_string(f'{prefix}{exc_str} <-| {truncate_string(str(stmt), 50, 50)}\n{trace}\n')
                 raise
             if cls.ENABLED and stmt.strip():
                 if should_ret or repr(ret) != stmt:

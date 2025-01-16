@@ -7,7 +7,7 @@ jobs:
   quick:
     name: Quick Download Tests
     if: "contains(github.event.head_commit.message, 'ci run dl')"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python
@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-24.04]
         python-version: ['3.10', '3.11', '3.12', '3.13', pypy-3.10]
         include:
         # atleast one of each CPython/PyPy tests must be in windows

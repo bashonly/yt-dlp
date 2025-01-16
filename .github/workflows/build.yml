@@ -92,7 +92,7 @@ permissions:
 
 jobs:
   process:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       origin: ${{ steps.process_origin.outputs.origin }}
     steps:
@@ -104,7 +104,7 @@ jobs:
   unix:
     needs: process
     if: inputs.unix
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -144,7 +144,7 @@ jobs:
   linux_static:
     needs: process
     if: inputs.linux_static
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Build static executable
@@ -180,7 +180,7 @@ jobs:
     permissions:
       contents: read
       packages: write # for creating cache
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         architecture:
@@ -502,7 +502,7 @@ jobs:
       - macos_legacy
       - windows
       - windows32
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4

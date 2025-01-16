@@ -55,7 +55,7 @@ jobs:
   prepare:
     permissions:
       contents: write
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       channel: ${{ steps.setup_variables.outputs.channel }}
       version: ${{ steps.setup_variables.outputs.version }}
@@ -236,7 +236,7 @@ jobs:
   publish_pypi:
     needs: [prepare, build]
     if: ${{ needs.prepare.outputs.pypi_project }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       id-token: write  # mandatory for trusted publishing
 
@@ -297,7 +297,7 @@ jobs:
     needs: [prepare, build]
     permissions:
       contents: write
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4

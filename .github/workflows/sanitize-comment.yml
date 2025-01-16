@@ -11,7 +11,7 @@ jobs:
   sanitize-comment:
     name: Sanitize comment
     if: vars.SANITIZE_COMMENT && !github.event.issue.pull_request
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Sanitize comment
         uses: yt-dlp/sanitize-comment@v1

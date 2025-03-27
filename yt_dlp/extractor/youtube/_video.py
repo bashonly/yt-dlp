@@ -1987,7 +1987,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         assert os.path.basename(func_id) == func_id
 
         self.write_debug(f'Extracting signature function {func_id}')
-        cache_spec, code = self.cache.load('youtube-sigfuncs', func_id), None
+        cache_spec, code = self.cache.load('youtube-sigfuncs', func_id, min_ver='2025.03.27'), None
 
         if not cache_spec:
             code = self._load_player(video_id, player_url)
@@ -2091,7 +2091,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         if func_code := self._player_cache.get(cache_id):
             return func_code
 
-        func_code = self.cache.load('youtube-nsig', player_id, min_ver='2025.03.26')
+        func_code = self.cache.load('youtube-nsig', player_id, min_ver='2025.03.27')
         if func_code:
             self._player_cache[cache_id] = func_code
 
@@ -2150,7 +2150,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
     def _extract_n_function_name(self, jscode, player_url=None):
         varname, global_list = self._interpret_player_js_global_var(jscode, player_url)
         if debug_str := traverse_obj(global_list, (lambda _, v: v.endswith('_w8_'), any)):
-            return self._search_regex(
+            funcname = self._search_regex(
                 r'''(?xs)
                     [;\n](?:
                         (?P<f>function\s+)|
@@ -2161,7 +2161,12 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                     \}\s*catch\(\s*[a-zA-Z0-9_$]+\s*\)\s*
                     \{\s*return\s+%s\[%d\]\s*\+\s*(?P=argname)\s*\}\s*return\s+[^}]+\}[;\n]
                 ''' % (re.escape(varname), global_list.index(debug_str)),
-                jscode, 'nsig function name', group='funcname')
+                jscode, 'nsig function name', group='funcname', default=None)
+            if funcname:
+                return funcname
+            self.write_debug(join_nonempty(
+                'Initial search was unable to find nsig function name',
+                player_url and f'        player = {player_url}', delim='\n'), only_once=True)
 
         # Examples (with placeholders nfunc, narray, idx):
         # *  .get("n"))&&(b=nfunc(b)
@@ -2231,7 +2236,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         _, varname, array_code = self._extract_player_js_global_var(jscode, player_url)
         jsi = JSInterpreter(array_code)
         interpret_global_var = self._cached(jsi.interpret_expression, 'js global list', player_url)
-        return varname, interpret_global_var(array_code, {}, allow_recursion=1)
+        return varname, interpret_global_var(array_code, {}, allow_recursion=10)
 
     def _fixup_n_function_code(self, argnames, nsig_code, jscode, player_url):
         varcode, varname, _ = self._extract_player_js_global_var(jscode, player_url)

@@ -98,7 +98,7 @@ class HuyaLiveIE(InfoExtractor):
                     stream_ext = stream_info[f's{stream_type}UrlSuffix']
                     stream_url = update_url_query(f'{stream_url}/{stream_name}.{stream_ext}', params)
                     formats.append({
-                        'ext': 'mp4' if stream_type == 'Hls' else stream_type,
+                        'ext': 'mp4' if stream_type == 'Hls' else stream_ext,
                         'protocol': 'm3u8' if stream_type == 'Hls' else 'https',
                         'preference': -2 if stream_type == 'Flv' else None,
                         'format_id': join_nonempty(stream_type, format_id),

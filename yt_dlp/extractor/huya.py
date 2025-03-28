@@ -9,6 +9,7 @@ from ..utils import (
     ExtractorError,
     UserNotLive,
     int_or_none,
+    join_nonempty,
     parse_duration,
     str_or_none,
     try_get,
@@ -65,43 +66,46 @@ class HuyaLiveIE(InfoExtractor):
         if not room_info:
             raise ExtractorError('Can not extract the room info', expected=True)
         title = room_info.get('roomName') or room_info.get('introduction') or self._html_extract_title(webpage)
-        screen_type = room_info.get('screenType')
-        live_source_type = room_info.get('liveSourceType')
         stream_info_list = stream_data['data'][0]['gameStreamInfoList']
         if not stream_info_list:
             raise UserNotLive(video_id=video_id)
+        screen_type = room_info.get('screenType')
+        live_source_type = room_info.get('liveSourceType')
+        re_secret = not screen_type and live_source_type in (0, 8, 13)
         formats = []
-        for stream_info in stream_info_list:
-            stream_url = stream_info.get('sFlvUrl')
-            if not stream_url:
-                continue
-            stream_name = stream_info.get('sStreamName')
-            re_secret = not screen_type and live_source_type in (0, 8, 13)
-            params = dict(urllib.parse.parse_qsl(unescapeHTML(stream_info['sFlvAntiCode'])))
-            fm, ss = '', ''
-            if re_secret:
-                fm, ss = self.encrypt(params, stream_info, stream_name)
-            for si in stream_data.get('vMultiStreamInfo'):
-                display_name, bitrate = re.fullmatch(
-                    r'(.+?)(?:(\d+)M)?', si.get('sDisplayName')).groups()
-                rate = si.get('iBitRate')
-                if rate:
-                    params['ratio'] = rate
-                else:
-                    params.pop('ratio', None)
-                    if bitrate:
-                        rate = int(bitrate) * 1000
+        for stream_type in ('Flv', 'Hls'):
+            for stream_info in traverse_obj(stream_info_list, lambda _, v: v[f's{stream_type}Url']):
+                stream_url = stream_info[f's{stream_type}Url']
+                stream_name = stream_info.get('sStreamName')
+                params = dict(urllib.parse.parse_qsl(unescapeHTML(stream_info[f's{stream_type}AntiCode'])))
+                fm, ss = '', ''
                 if re_secret:
-                    params['wsSecret'] = hashlib.md5(
-                        '_'.join([fm, params['u'], stream_name, ss, params['wsTime']]))
-                formats.append({
-                    'ext': stream_info.get('sFlvUrlSuffix'),
-                    'format_id': str_or_none(stream_info.get('iLineIndex')),
-                    'tbr': rate,
-                    'url': update_url_query(f'{stream_url}/{stream_name}.{stream_info.get("sFlvUrlSuffix")}',
-                                            query=params),
-                    **self._RESOLUTION.get(display_name, {}),
-                })
+                    fm, ss = self.encrypt(params, stream_info, stream_name)
+                for si in stream_data.get('vMultiStreamInfo'):
+                    display_name, bitrate = re.fullmatch(
+                        r'(.+?)(?:(\d+)M)?', si.get('sDisplayName')).groups()
+                    rate = si.get('iBitRate')
+                    if rate:
+                        params['ratio'] = rate
+                    else:
+                        params.pop('ratio', None)
+                        if bitrate:
+                            rate = int(bitrate) * 1000
+                    if re_secret:
+                        params['wsSecret'] = hashlib.md5(
+                            '_'.join([fm, params['u'], stream_name, ss, params['wsTime']]))
+                    format_id = str_or_none(stream_info.get('iLineIndex'))
+                    stream_ext = stream_info[f's{stream_type}UrlSuffix']
+                    stream_url = update_url_query(f'{stream_url}/{stream_name}.{stream_ext}', params)
+                    formats.append({
+                        'ext': 'mp4' if stream_type == 'Hls' else stream_type,
+                        'protocol': 'm3u8' if stream_type == 'Hls' else 'https',
+                        'preference': -2 if stream_type == 'Flv' else None,
+                        'format_id': join_nonempty(stream_type, format_id),
+                        'tbr': rate,
+                        'url': stream_url,
+                        **self._RESOLUTION.get(display_name, {}),
+                    })
 
         return {
             'id': video_id,

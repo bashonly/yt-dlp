@@ -7,6 +7,7 @@ import urllib.parse
 from .common import InfoExtractor
 from ..utils import (
     ExtractorError,
+    UserNotLive,
     int_or_none,
     parse_duration,
     str_or_none,
@@ -68,7 +69,7 @@ class HuyaLiveIE(InfoExtractor):
         live_source_type = room_info.get('liveSourceType')
         stream_info_list = stream_data['data'][0]['gameStreamInfoList']
         if not stream_info_list:
-            raise ExtractorError('Video is offline', expected=True)
+            raise UserNotLive(video_id=video_id)
         formats = []
         for stream_info in stream_info_list:
             stream_url = stream_info.get('sFlvUrl')
@@ -106,6 +107,7 @@ class HuyaLiveIE(InfoExtractor):
             'id': video_id,
             'title': title,
             'formats': formats,
+            'is_live': True,
             'view_count': room_info.get('totalCount'),
             'thumbnail': room_info.get('screenshot'),
             'description': room_info.get('contentIntro'),

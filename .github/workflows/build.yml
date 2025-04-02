@@ -419,7 +419,7 @@ jobs:
           python devscripts/make_lazy_extractors.py
       - name: Build
         run: |
-          python -m bundle.pyinstaller
+          python -m bundle.pyinstaller --debug all
           python -m bundle.pyinstaller --onedir
           Compress-Archive -Path ./dist/yt-dlp/* -DestinationPath ./dist/yt-dlp_win.zip
 

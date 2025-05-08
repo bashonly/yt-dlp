@@ -5631,6 +5631,7 @@ def filesize_from_tbr(tbr, duration):
 
 def _request_dump_filename(url, video_id, data=None, trim_length=None):
     if data is not None:
+        # CodeQL: MD5 is used for unique filenames, not for cryptographic purposes
         data = hashlib.md5(data).hexdigest()
     basen = join_nonempty(video_id, data, url, delim='_')
     trim_length = trim_length or 240

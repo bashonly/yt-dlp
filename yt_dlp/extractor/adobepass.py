@@ -1756,7 +1756,7 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
 
                     post_form(mvpd_confirm_page_res, 'Confirming Login')
                 elif mso_id == 'Fubo':
-                    provider_redirect_page, urlh = provider_redirect_page_res
+                    _, urlh = provider_redirect_page_res
 
                     fubo_response = self._download_json(
                         'https://api.fubo.tv/partners/tve/connect', video_id,

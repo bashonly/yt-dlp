@@ -256,7 +256,7 @@ class GoIE(AdobePassIE):
                     requestor_id = site_info.get('requestor_id', 'DisneyChannels')
                     software_statement = site_info.get('software_statement')
                     resource = site_info.get('resource_id') or self._get_mvpd_resource(
-                        site_info.get('resource_channel'), title, video_id, None)
+                        site_info.get('resource_channel', 'DisneyChannels'), title, video_id, None)
                     auth = self._extract_mvpd_auth(
                         url, video_id, requestor_id, resource, software_statement)
                     data.update({

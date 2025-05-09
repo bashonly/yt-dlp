@@ -3,6 +3,7 @@ import json
 import re
 import time
 import urllib.parse
+import uuid
 import xml.etree.ElementTree as etree
 
 from .common import InfoExtractor
@@ -1448,13 +1449,10 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
             if not authn_token:
                 reg_code = None
                 if software_statement:
-                    # Get device ID and pass_sfp
-                    import uuid
-                    fingerprint = uuid.uuid4().hex
                     device_info, urlh = self._download_json_handle(
                         'https://sp.auth.adobe.com/indiv/devices',
                         video_id, 'Registering device with Adobe',
-                        data=json.dumps({'fingerprint': fingerprint}).encode(),
+                        data=json.dumps({'fingerprint': uuid.uuid4().hex}).encode(),
                         headers={'Content-Type': 'application/json; charset=UTF-8'})
 
                     device_id = device_info['deviceId']
@@ -1491,7 +1489,6 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
                             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
                             'Authorization': f'Bearer {access_token}',
                         })['code']
-                    self.write_debug(f'AP registration code: {reg_code}')
 
                 mso_id = self.get_param('ap_mso')
                 if mso_id:

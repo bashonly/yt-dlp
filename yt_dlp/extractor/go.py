@@ -263,7 +263,7 @@ class GoIE(AdobePassIE):
                     data.update({
                         'token': auth,
                         'token_type': 'ap',
-                        'adobe_requestor_id': site_info.get('resource_channel'),
+                        'adobe_requestor_id': site_info.get('resource_channel') or requestor_id,
                     })
                 else:
                     self._initialize_geo_bypass({'countries': ['US']})

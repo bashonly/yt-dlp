@@ -45,7 +45,6 @@ class GoIE(AdobePassIE):
         'disneynow': {
             'brand': '011',
             'resource_id': 'Disney',
-            'requestor_id': 'DisneyChannels',
             'resource_channel': 'DisneyChannels',
             'software_statement': 'eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiI1MzAzNTRiOS04NDNiLTRkNjAtYTQ3ZS0yNzk1MzlkOTIyNTciLCJuYmYiOjE1NTg5ODc0NDksImlzcyI6ImF1dGguYWRvYmUuY29tIiwiaWF0IjoxNTU4OTg3NDQ5fQ.Jud6YS6-J2h0h6po0oMheDym0qRTJQGj4kzacrz4DFuEwhcBkkykW6pF5pKuAUJy9HCZ40oDAHe2KcTlDJjCZF5tDaUEfdihakZ9cC_rG7MU-QoRne8qaB_dPDKwGuk-ZyWD8eV3zwTJmbGo8hDxYTEU81YNCxwhyc_BPDr5TYiubbmpP3_pTnXmSpuL58isJ2peSKWlX9BacuXtBY25c_QnPFKk-_EETm7IHkTpDazde1QfHWGu4s4yJpKGk8RVVujVG6h6ELlL-ZeYLilBm7iS7h1TYG1u7fJhyZRL7isaom6NvAzsvN3ngss1fLwt8decP8wzdFHrbYTdTjW8qw',
         },

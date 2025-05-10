@@ -1363,7 +1363,6 @@ MSO_INFO = {
 class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should end with BaseIE/InfoExtractor
     _SERVICE_PROVIDER_TEMPLATE = 'https://sp.auth.adobe.com/adobe-services/%s'
     _USER_AGENT = 'Mozilla/5.0 (X11; Linux i686; rv:47.0) Gecko/20100101 Firefox/47.0'
-    _MODERN_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; rv:131.0) Gecko/20100101 Firefox/131.0'
     _MVPD_CACHE = 'ap-mvpd'
 
     _DOWNLOADING_LOGIN_PAGE = 'Downloading Provider Login Page'
@@ -1374,6 +1373,14 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
         kwargs['headers'] = headers
         return super()._download_webpage_handle(
             *args, **kwargs)
+
+    @staticmethod
+    def _get_mso_headers(mso_id):
+        return {
+            # yt-dlp's default user-agent is usually too old for Comcast_SSO
+            # See: https://github.com/yt-dlp/yt-dlp/issues/10848
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:131.0) Gecko/20100101 Firefox/131.0',
+        } if mso_id == 'Comcast_SSO' else {}
 
     @staticmethod
     def _get_mvpd_resource(provider_id, title, guid, rating):
@@ -1399,15 +1406,24 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
             token_expires = unified_timestamp(re.sub(r'[_ ]GMT', '', xml_text(token, date_ele)))
             return token_expires and token_expires <= int(time.time())
 
-        def post_form(form_page_res, note, data={}):
+        def post_form(form_page_res, note, data={}, expected_hostname=None):
             form_page, urlh = form_page_res
             post_url = self._html_search_regex(r'<form[^>]+action=(["\'])(?P<url>.+?)\1', form_page, 'post url', group='url')
             if not re.match(r'https?://', post_url):
                 post_url = urllib.parse.urljoin(urlh.url, post_url)
+            if expected_hostname:
+                # This request is submitting credentials so we should validate it
+                url_parsed = urllib.parse.urlparse(post_url)
+                if url_parsed.hostname != expected_hostname:
+                    raise ExtractorError('Unexpected POST URL hostname; aborting before posting sensitive data')
+                if url_parsed.scheme != 'https':
+                    self.write_debug('Upgrading POST URL scheme to https')
+                    post_url = urllib.parse.urlunparse(url_parsed._replace(scheme='https'))
             form_data = self._hidden_inputs(form_page)
             form_data.update(data)
             return self._download_webpage_handle(
                 post_url, video_id, note, data=urlencode_postdata(form_data), headers={
+                    **self._get_mso_headers(mso_id),
                     'Content-Type': 'application/x-www-form-urlencoded',
                 })
 
@@ -1507,11 +1523,7 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
                             'domain_name': 'adobe.com',
                             'redirect_url': url,
                             'reg_code': reg_code,
-                        }), headers={
-                            # yt-dlp's default user-agent is usually too old for Comcast_SSO
-                            # See: https://github.com/yt-dlp/yt-dlp/issues/10848
-                            'User-Agent': self._MODERN_USER_AGENT,
-                        } if mso_id == 'Comcast_SSO' else None)
+                        }), headers=self._get_mso_headers(mso_id))
 
                 elif not self._cookies_passed:
                     raise_mvpd_required()
@@ -1542,8 +1554,8 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
                             oauth_redirect_url = extract_redirect_url(
                                 provider_redirect_page, fatal=True)
                             provider_login_page_res = self._download_webpage_handle(
-                                oauth_redirect_url, video_id,
-                                self._DOWNLOADING_LOGIN_PAGE)
+                                oauth_redirect_url, video_id, self._DOWNLOADING_LOGIN_PAGE,
+                                headers=self._get_mso_headers(mso_id))
                         else:
                             provider_login_page_res = post_form(
                                 provider_redirect_page_res,
@@ -1553,7 +1565,7 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
                             provider_login_page_res, 'Logging in', {
                                 mso_info['username_field']: username,
                                 mso_info['password_field']: password,
-                            })
+                            }, expected_hostname='login.xfinity.com')
                         mvpd_confirm_page, urlh = mvpd_confirm_page_res
                         if '<button class="submit" value="Resume">Resume</button>' in mvpd_confirm_page:
                             post_form(mvpd_confirm_page_res, 'Confirming Login')

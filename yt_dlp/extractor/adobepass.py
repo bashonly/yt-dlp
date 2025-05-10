@@ -1397,7 +1397,7 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
         resource_rating.text = rating
         return '<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">' + etree.tostring(channel).decode() + '</rss>'
 
-    def _extract_mvpd_auth(self, url, video_id, requestor_id, resource, software_statement=None):
+    def _extract_mvpd_auth(self, url, video_id, requestor_id, resource, software_statement):
         def xml_text(xml_str, tag):
             return self._search_regex(
                 f'<{tag}>(.+?)</{tag}>', xml_str, tag)
@@ -1463,48 +1463,46 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
             if authn_token and is_expired(authn_token, 'simpleTokenExpires'):
                 authn_token = None
             if not authn_token:
-                reg_code = None
-                if software_statement:
-                    device_info, urlh = self._download_json_handle(
-                        'https://sp.auth.adobe.com/indiv/devices',
-                        video_id, 'Registering device with Adobe',
-                        data=json.dumps({'fingerprint': uuid.uuid4().hex}).encode(),
-                        headers={'Content-Type': 'application/json; charset=UTF-8'})
+                device_info, urlh = self._download_json_handle(
+                    'https://sp.auth.adobe.com/indiv/devices',
+                    video_id, 'Registering device with Adobe',
+                    data=json.dumps({'fingerprint': uuid.uuid4().hex}).encode(),
+                    headers={'Content-Type': 'application/json; charset=UTF-8'})
 
-                    device_id = device_info['deviceId']
-                    mvpd_headers['pass_sfp'] = urlh.get_header('pass_sfp')
-                    mvpd_headers['Ap_21'] = device_id
+                device_id = device_info['deviceId']
+                mvpd_headers['pass_sfp'] = urlh.get_header('pass_sfp')
+                mvpd_headers['Ap_21'] = device_id
 
-                    registration = self._download_json(
-                        'https://sp.auth.adobe.com/o/client/register',
-                        video_id, 'Registering client with Adobe',
-                        data=json.dumps({'software_statement': software_statement}).encode(),
-                        headers={'Content-Type': 'application/json; charset=UTF-8'})
+                registration = self._download_json(
+                    'https://sp.auth.adobe.com/o/client/register',
+                    video_id, 'Registering client with Adobe',
+                    data=json.dumps({'software_statement': software_statement}).encode(),
+                    headers={'Content-Type': 'application/json; charset=UTF-8'})
 
-                    access_token = self._download_json(
-                        'https://sp.auth.adobe.com/o/client/token', video_id,
-                        'Obtaining access token', data=urlencode_postdata({
-                            'grant_type': 'client_credentials',
-                            'client_id': registration['client_id'],
-                            'client_secret': registration['client_secret'],
-                        }),
-                        headers={
-                            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                        })['access_token']
-                    mvpd_headers['Authorization'] = f'Bearer {access_token}'
+                access_token = self._download_json(
+                    'https://sp.auth.adobe.com/o/client/token', video_id,
+                    'Obtaining access token', data=urlencode_postdata({
+                        'grant_type': 'client_credentials',
+                        'client_id': registration['client_id'],
+                        'client_secret': registration['client_secret'],
+                    }),
+                    headers={
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    })['access_token']
+                mvpd_headers['Authorization'] = f'Bearer {access_token}'
 
-                    reg_code = self._download_json(
-                        f'https://sp.auth.adobe.com/reggie/v1/{requestor_id}/regcode',
-                        video_id, 'Obtaining registration code',
-                        data=urlencode_postdata({
-                            'requestor': requestor_id,
-                            'deviceId': device_id,
-                            'format': 'json',
-                        }),
-                        headers={
-                            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                            'Authorization': f'Bearer {access_token}',
-                        })['code']
+                reg_code = self._download_json(
+                    f'https://sp.auth.adobe.com/reggie/v1/{requestor_id}/regcode',
+                    video_id, 'Obtaining registration code',
+                    data=urlencode_postdata({
+                        'requestor': requestor_id,
+                        'deviceId': device_id,
+                        'format': 'json',
+                    }),
+                    headers={
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                        'Authorization': f'Bearer {access_token}',
+                    })['code']
 
                 mso_id = self.get_param('ap_mso')
                 if mso_id:

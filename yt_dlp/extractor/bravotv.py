@@ -1,43 +1,23 @@
-from .adobepass import AdobePassIE
-from ..networking import HEADRequest
-from ..utils import (
-    extract_attributes,
-    float_or_none,
-    get_element_html_by_class,
-    int_or_none,
-    merge_dicts,
-    parse_age_limit,
-    remove_end,
-    str_or_none,
-    traverse_obj,
-    unescapeHTML,
-    unified_timestamp,
-    update_url_query,
-    url_or_none,
-)
+from .nbc import NBCUniversalBaseIE
 
 
-class BravoTVIE(AdobePassIE):
-    _VALID_URL = r'https?://(?:www\.)?(?P<site>bravotv|oxygen)\.com/(?:[^/]+/)+(?P<id>[^/?#]+)'
-    _SOFTWARE_STATEMENTS = {
-        'bravo': 'eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiI0MjY3NDZiZS0xYmE1LTRmNTItYjZmYy00NDViZDFhNGFmMWUiLCJuYmYiOjE1OTI5NDgyODEsImlzcyI6ImF1dGguYWRvYmUuY29tIiwiaWF0IjoxNTkyOTQ4MjgxfQ.hcfR51UQ3GZAdDBuNDMvFE8iYXxcllhlVeOiEegU_glDkDJvi8pxtYoJEN9f4CrrfHT0F1pkDUwXVHhEtlu786LWpRNFUzjw2poKZqCh-akEhU8fbAp70LvWzdFF6K2C-4HsiNo3G5t354_OZnjxPE6PIOyDG_4HXAXzYAXInL2RXZPXZgew3rVBxrEt5Fork64DBPXhm9nEisEOnokaW34SskTovwwj5e8HVBNqzxJtvvSCrSjZ_oIcHu02YFudL--ZbxzATCLNIr1JJK1NDDxUu4C9S9at_yErTgsD2iDXCD2Pl4CjFEYb1qdl2pbPHcjDP30MbBA09BENyLcOsw',
-        'oxygen': 'eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJjNGU2YjlhNi1hNjhkLTQ4NzUtODFkNi00OWE3MzRmM2U4NjkiLCJuYmYiOjE1OTI5NDgyNTUsImlzcyI6ImF1dGguYWRvYmUuY29tIiwiaWF0IjoxNTkyOTQ4MjU1fQ.xoixfDvRnFho5BoNTDxPYnLpPJYnIbAB_wvC7QQEnsFfnaXzooVekPzvKDq3UcZD4HRecqiIpyD9qPIzOebHWFBcnGryjZzugC18dc8ZVo29e68nCvRMFixAZOTXntKYm0NV4Dvt4ZZJN7gTzZN58449VAcM4-uKGQvzr2OG42-BglNVomwjtGdgr-WoMCf5S66NbzIuYIaFnSBH0RUKZCyxmHS0D5DDipzX0ItsWlx8iT0m_Wi8OL7PieyLRXnFioiJyOxoI25lC0xQnbxxWAcKMlFGkY86YBs5X_WNvASA_yujNmv6Sg1HQKc59rbdsTQjZoU_FoHiaQaDJmnzcA',
-    }
-
+class BravoTVIE(NBCUniversalBaseIE):
+    _VALID_URL = r'https?://(?:www\.)?(?:bravotv|oxygen)\.com/(?:[^/?#]+/)+(?P<id>[^/?#]+)'
     _TESTS = [{
         'url': 'https://www.bravotv.com/top-chef/season-16/episode-15/videos/the-top-chef-season-16-winner-is',
         'info_dict': {
             'id': '3923059',
             'ext': 'mp4',
             'title': 'The Top Chef Season 16 Winner Is...',
+            'display_id': 'the-top-chef-season-16-winner-is',
             'description': 'Find out who takes the title of Top Chef!',
-            'upload_date': '20190314',
-            'timestamp': 1552591860,
+            'upload_date': '20190315',
+            'timestamp': 1552618860,
             'season_number': 16,
             'episode_number': 15,
             'series': 'Top Chef',
-            'episode': 'The Top Chef Season 16 Winner Is...',
-            'duration': 190.357,
+            'episode': 'Finale',
+            'duration': 190,
             'season': 'Season 16',
             'thumbnail': r're:^https://.+\.jpg',
         },
@@ -48,14 +28,15 @@ class BravoTVIE(AdobePassIE):
             'id': '9000234570',
             'ext': 'mp4',
             'title': 'London Calling',
+            'display_id': 'london-calling',
             'description': 'md5:5af95a8cbac1856bd10e7562f86bb759',
             'upload_date': '20230310',
-            'timestamp': 1678410000,
+            'timestamp': 1678418100,
             'season_number': 20,
             'episode_number': 1,
             'series': 'Top Chef',
             'episode': 'London Calling',
-            'duration': 3266.03,
+            'duration': 3266,
             'season': 'Season 20',
             'chapters': 'count:7',
             'thumbnail': r're:^https://.+\.jpg',
@@ -69,14 +50,15 @@ class BravoTVIE(AdobePassIE):
             'id': '3692045',
             'ext': 'mp4',
             'title': 'Closing Night',
-            'description': 'md5:3170065c5c2f19548d72a4cbc254af63',
-            'upload_date': '20180401',
-            'timestamp': 1522623600,
+            'display_id': 'closing-night',
+            'description': 'md5:c8a5bb523c8ef381f3328c6d9f1e4632',
+            'upload_date': '20230126',
+            'timestamp': 1674709200,
             'season_number': 1,
             'episode_number': 1,
             'series': 'In Ice Cold Blood',
             'episode': 'Closing Night',
-            'duration': 2629.051,
+            'duration': 2629,
             'season': 'Season 1',
             'chapters': 'count:6',
             'thumbnail': r're:^https://.+\.jpg',
@@ -90,14 +72,15 @@ class BravoTVIE(AdobePassIE):
             'id': '3974019',
             'ext': 'mp4',
             'title': '\'Handling The Horwitz House After The Murder (Season 2, Episode 16)',
+            'display_id': 'handling-the-horwitz-house-after-the-murder-season-2',
             'description': 'md5:f9d638dd6946a1c1c0533a9c6100eae5',
-            'upload_date': '20190617',
-            'timestamp': 1560790800,
+            'upload_date': '20190618',
+            'timestamp': 1560819600,
             'season_number': 2,
             'episode_number': 16,
             'series': 'In Ice Cold Blood',
-            'episode': '\'Handling The Horwitz House After The Murder (Season 2, Episode 16)',
-            'duration': 68.235,
+            'episode': 'Mother Vs Son',
+            'duration': 68,
             'season': 'Season 2',
             'thumbnail': r're:^https://.+\.jpg',
             'age_limit': 14,
@@ -109,85 +92,5 @@ class BravoTVIE(AdobePassIE):
     }]
 
     def _real_extract(self, url):
-        site, display_id = self._match_valid_url(url).group('site', 'id')
-        webpage = self._download_webpage(url, display_id)
-        settings = self._search_json(
-            r'<script[^>]+data-drupal-selector="drupal-settings-json"[^>]*>', webpage, 'settings', display_id)
-        tve = extract_attributes(get_element_html_by_class('tve-video-deck-app', webpage) or '')
-        query = {
-            'manifest': 'm3u',
-            'formats': 'mpeg4',
-        }
-
-        if tve:
-            account_pid = tve.get('data-mpx-media-account-pid') or 'HNK2IC'
-            account_id = tve['data-mpx-media-account-id']
-            metadata = self._parse_json(
-                tve.get('data-normalized-video', ''), display_id, fatal=False, transform_source=unescapeHTML)
-            video_id = tve.get('data-guid') or metadata['guid']
-            if tve.get('data-entitlement') == 'auth':
-                auth = traverse_obj(settings, ('tve_adobe_auth', {dict})) or {}
-                site = remove_end(site, 'tv')
-                release_pid = tve['data-release-pid']
-                resource = self._get_mvpd_resource(
-                    tve.get('data-adobe-pass-resource-id') or auth.get('adobePassResourceId') or site,
-                    tve['data-title'], release_pid, tve.get('data-rating'))
-                query.update({
-                    'switch': 'HLSServiceSecure',
-                    'auth': self._extract_mvpd_auth(
-                        url, release_pid, auth.get('adobePassRequestorId') or site, resource, self._SOFTWARE_STATEMENTS.get(site)),
-                })
-
-        else:
-            ls_playlist = traverse_obj(settings, ('ls_playlist', ..., {dict}), get_all=False) or {}
-            account_pid = ls_playlist.get('mpxMediaAccountPid') or 'PHSl-B'
-            account_id = ls_playlist['mpxMediaAccountId']
-            video_id = ls_playlist['defaultGuid']
-            metadata = traverse_obj(
-                ls_playlist, ('videos', lambda _, v: v['guid'] == video_id, {dict}), get_all=False)
-
-        tp_url = f'https://link.theplatform.com/s/{account_pid}/media/guid/{account_id}/{video_id}'
-        tp_metadata = self._download_json(
-            update_url_query(tp_url, {'format': 'preview'}), video_id, fatal=False)
-
-        chapters = traverse_obj(tp_metadata, ('chapters', ..., {
-            'start_time': ('startTime', {float_or_none(scale=1000)}),
-            'end_time': ('endTime', {float_or_none(scale=1000)}),
-        }))
-        # prune pointless single chapters that span the entire duration from short videos
-        if len(chapters) == 1 and not traverse_obj(chapters, (0, 'end_time')):
-            chapters = None
-
-        m3u8_url = self._request_webpage(HEADRequest(
-            update_url_query(f'{tp_url}/stream.m3u8', query)), video_id, 'Checking m3u8 URL').url
-        if 'mpeg_cenc' in m3u8_url:
-            self.report_drm(video_id)
-        formats, subtitles = self._extract_m3u8_formats_and_subtitles(m3u8_url, video_id, 'mp4', m3u8_id='hls')
-
-        return {
-            'id': video_id,
-            'formats': formats,
-            'subtitles': subtitles,
-            'chapters': chapters,
-            **merge_dicts(traverse_obj(tp_metadata, {
-                'title': 'title',
-                'description': 'description',
-                'duration': ('duration', {float_or_none(scale=1000)}),
-                'timestamp': ('pubDate', {float_or_none(scale=1000)}),
-                'season_number': (('pl1$seasonNumber', 'nbcu$seasonNumber'), {int_or_none}),
-                'episode_number': (('pl1$episodeNumber', 'nbcu$episodeNumber'), {int_or_none}),
-                'series': (('pl1$show', 'nbcu$show'), (None, ...), {str}),
-                'episode': (('title', 'pl1$episodeNumber', 'nbcu$episodeNumber'), {str_or_none}),
-                'age_limit': ('ratings', ..., 'rating', {parse_age_limit}),
-            }, get_all=False), traverse_obj(metadata, {
-                'title': 'title',
-                'description': 'description',
-                'duration': ('durationInSeconds', {int_or_none}),
-                'timestamp': ('airDate', {unified_timestamp}),
-                'thumbnail': ('thumbnailUrl', {url_or_none}),
-                'season_number': ('seasonNumber', {int_or_none}),
-                'episode_number': ('episodeNumber', {int_or_none}),
-                'episode': 'episodeTitle',
-                'series': 'show',
-            })),
-        }
+        display_id = self._match_id(url)
+        return self._extract_nbcu_video(url, display_id)

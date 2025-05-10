@@ -14,24 +14,125 @@ from ..utils import (
     UserNotLive,
     clean_html,
     determine_ext,
+    extract_attributes,
     float_or_none,
+    get_element_html_by_class,
     int_or_none,
     join_nonempty,
+    make_archive_id,
     mimetype2ext,
     parse_age_limit,
     parse_duration,
+    parse_iso8601,
     remove_end,
-    smuggle_url,
-    traverse_obj,
     try_get,
     unescapeHTML,
     unified_timestamp,
     update_url_query,
     url_basename,
+    url_or_none,
 )
+from ..utils.traversal import require, traverse_obj
 
 
-class NBCIE(ThePlatformIE):  # XXX: Do not subclass from concrete IE
+class NBCUniversalBaseIE(AdobePassIE):
+    def _extract_nbcu_formats_and_subtitles(self, tp_path, video_id, query):
+        m3u8_url = self._request_webpage(
+            HEADRequest(f'https://link.theplatform.com/s/{tp_path}/stream.m3u8'),
+            video_id, 'Checking m3u8 URL', query=query).url
+        if 'mpeg_cenc' in m3u8_url or 'mpeg_cbcs' in m3u8_url:
+            self.report_drm(video_id)
+        return self._extract_m3u8_formats_and_subtitles(m3u8_url, video_id, 'mp4', m3u8_id='hls')
+
+    def _download_theplatform_metadata(self, path, video_id, fatal=False):
+        # TODO: Replace ThePlatformBaseIE method with this one and subclass from ThePlatformBaseIE
+        return self._download_json(
+            f'https://link.theplatform.com/s/{path}', video_id,
+            fatal=fatal, query={'format': 'preview'}) or {}
+
+    def _extract_nbcu_video(self, url, display_id, old_ie_key=None):
+        webpage = self._download_webpage(url, display_id)
+        settings = self._search_json(
+            r'<script[^>]+data-drupal-selector="drupal-settings-json"[^>]*>',
+            webpage, 'settings', display_id)
+        tve = extract_attributes(get_element_html_by_class('tve-video-deck-app', webpage) or '')
+        query = {
+            'manifest': 'm3u',
+            'formats': 'm3u+none,mpeg4',
+        }
+
+        if tve:
+            account_pid = tve.get('data-mpx-media-account-pid') or tve['data-mpx-account-pid']
+            account_id = tve['data-mpx-media-account-id']
+            metadata = self._parse_json(
+                tve.get('data-normalized-video') or '', display_id, fatal=False, transform_source=unescapeHTML)
+            video_id = tve.get('data-guid') or metadata['guid']
+            if tve.get('data-entitlement') == 'auth':
+                auth = settings['tve_adobe_auth']
+                release_pid = tve['data-release-pid']
+                resource = self._get_mvpd_resource(
+                    tve.get('data-adobe-pass-resource-id') or auth['adobePassResourceId'],
+                    tve['data-title'], release_pid, tve.get('data-rating'))
+                query.update({
+                    'formats': 'mpeg4',
+                    'switch': 'HLSServiceSecure',
+                    'auth': self._extract_mvpd_auth(
+                        url, release_pid, auth['adobePassRequestorId'],
+                        resource, auth['adobePassSoftwareStatement']),
+                })
+        else:
+            ls_playlist = traverse_obj(settings, (
+                'ls_playlist', lambda _, v: v['defaultGuid'], any, {require('LS playlist')}))
+            video_id = ls_playlist['defaultGuid']
+            account_pid = ls_playlist.get('mpxMediaAccountPid') or ls_playlist['mpxAccountPid']
+            account_id = ls_playlist['mpxMediaAccountId']
+            metadata = traverse_obj(ls_playlist, ('videos', lambda _, v: v['guid'] == video_id, any)) or {}
+
+        tp_path = f'{account_pid}/media/guid/{account_id}/{video_id}'
+        formats, subtitles = self._extract_nbcu_formats_and_subtitles(tp_path, video_id, query)
+        tp_metadata = self._download_theplatform_metadata(tp_path, video_id)
+
+        chapters = traverse_obj(tp_metadata, ('chapters', ..., {
+            'start_time': ('startTime', {float_or_none(scale=1000)}),
+            'end_time': ('endTime', {float_or_none(scale=1000)}),
+        }))
+        # Prune pointless single chapters that span the entire duration from short videos
+        if len(chapters) == 1 and not traverse_obj(chapters, (0, 'end_time')):
+            chapters = None
+
+        return {
+            'id': video_id,
+            'display_id': display_id,
+            'formats': formats,
+            'subtitles': subtitles,
+            'chapters': chapters,
+            **traverse_obj(tp_metadata, {
+                'title': ('title', {str}),
+                'description': ('description', {str}),
+                'duration': ('duration', {float_or_none(scale=1000)}),
+                'timestamp': ('pubDate', {float_or_none(scale=1000)}),
+                'season_number': (('pl1$seasonNumber', 'nbcu$seasonNumber'), {int_or_none}),
+                'episode_number': (('pl1$episodeNumber', 'nbcu$episodeNumber'), {int_or_none}),
+                'series': (('pl1$show', 'nbcu$show'), (None, ...), {str}),
+                'episode': ('title', {str}),
+                'age_limit': ('ratings', ..., 'rating', {parse_age_limit}),
+            }, get_all=False),
+            **traverse_obj(metadata, {
+                'title': ('title', {str}),
+                'description': ('description', {str}),
+                'duration': ('durationInSeconds', {int_or_none}),
+                'timestamp': ('airDate', {parse_iso8601}),
+                'thumbnail': ('thumbnailUrl', {url_or_none}),
+                'season_number': ('seasonNumber', {int_or_none}),
+                'episode_number': ('episodeNumber', {int_or_none}),
+                'episode': ('episodeTitle', {str}),
+                'series': ('show', {str}),
+            }),
+            '_old_archive_ids': [make_archive_id(old_ie_key, video_id)] if old_ie_key else None,
+        }
+
+
+class NBCIE(NBCUniversalBaseIE):
     _VALID_URL = r'https?(?P<permalink>://(?:www\.)?nbc\.com/(?:classic-tv/)?[^/]+/video/[^/]+/(?P<id>(?:NBCE|n)?\d+))'
 
     _TESTS = [
@@ -151,6 +252,7 @@ class NBCIE(ThePlatformIE):  # XXX: Do not subclass from concrete IE
             'only_matching': True,
         },
     ]
+    _SOFTWARE_STATEMENT = 'eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiI1Yzg2YjdkYy04NDI3LTRjNDUtOGQwZi1iNDkzYmE3MmQwYjQiLCJuYmYiOjE1Nzg3MDM2MzEsImlzcyI6ImF1dGguYWRvYmUuY29tIiwiaWF0IjoxNTc4NzAzNjMxfQ.QQKIsBhAjGQTMdAqRTqhcz2Cddr4Y2hEjnSiOeKKki4nLrkDOsjQMmqeTR0hSRarraxH54wBgLvsxI7LHwKMvr7G8QpynNAxylHlQD3yhN9tFhxt4KR5wW3as02B-W2TznK9bhNWPKIyHND95Uo2Mi6rEQoq8tM9O09WPWaanE5BX_-r6Llr6dPq5F0Lpx2QOn2xYRb1T4nFxdFTNoss8GBds8OvChTiKpXMLHegLTc1OS4H_1a8tO_37jDwSdJuZ8iTyRLV4kZ2cpL6OL5JPMObD4-HQiec_dfcYgMKPiIfP9ZqdXpec2SVaCLsWEk86ZYvD97hLIQrK5rrKd1y-A'
 
     def _real_extract(self, url):
         permalink, video_id = self._match_valid_url(url).groups()
@@ -196,24 +298,24 @@ class NBCIE(ThePlatformIE):  # XXX: Do not subclass from concrete IE
                     'userId': '0',
                 }),
             })['data']['bonanzaPage']['metadata']
+
         query = {
-            'mbr': 'true',
             'manifest': 'm3u',
+            'formats': 'm3u+none,mpeg4',
             'switch': 'HLSServiceSecure',
         }
         video_id = video_data['mpxGuid']
-        tp_path = 'NnzsPC/media/guid/{}/{}'.format(video_data.get('mpxAccountId') or '2410887629', video_id)
-        tpm = self._download_theplatform_metadata(tp_path, video_id)
+        tp_path = f'NnzsPC/media/guid/{video_data["mpxAccountId"]}/{video_id}'
+        tpm = self._download_theplatform_metadata(tp_path, video_id, fatal=True)
         title = tpm.get('title') or video_data.get('secondaryTitle')
         if video_data.get('locked'):
             resource = self._get_mvpd_resource(
-                video_data.get('resourceId') or 'nbcentertainment',
-                title, video_id, video_data.get('rating'))
+                video_data['resourceId'], title, video_id, video_data.get('rating'))
             query['auth'] = self._extract_mvpd_auth(
-                url, video_id, 'nbcentertainment', resource)
-        theplatform_url = smuggle_url(update_url_query(
-            'http://link.theplatform.com/s/NnzsPC/media/guid/{}/{}'.format(video_data.get('mpxAccountId') or '2410887629', video_id),
-            query), {'force_smil_url': True})
+                url, video_id, 'nbcentertainment', resource, self._SOFTWARE_STATEMENT)
+            query['formats'] = 'mpeg4'
+
+        formats, subtitles = self._extract_nbcu_formats_and_subtitles(tp_path, video_id, query)
 
         # Empty string or 0 can be valid values for these. So the check must be `is None`
         description = video_data.get('description')
@@ -236,18 +338,18 @@ class NBCIE(ThePlatformIE):  # XXX: Do not subclass from concrete IE
             tags = tpm.get('keywords')
 
         return {
-            '_type': 'url_transparent',
+            'formats': formats,
+            'subtitles': subtitles,
             'age_limit': parse_age_limit(rating),
             'description': description,
             'episode': title,
             'episode_number': episode_number,
             'id': video_id,
-            'ie_key': 'ThePlatform',
             'season_number': season_number,
             'series': series,
             'tags': tags,
             'title': title,
-            'url': theplatform_url,
+            '_old_archive_ids': [make_archive_id('ThePlatform', video_id)],
         }
 
 
@@ -321,6 +423,7 @@ class NBCSportsIE(InfoExtractor):
 
 
 class NBCSportsStreamIE(AdobePassIE):
+    _WORKING = False
     _VALID_URL = r'https?://stream\.nbcsports\.com/.+?\bpid=(?P<id>\d+)'
     _TEST = {
         'url': 'http://stream.nbcsports.com/nbcsn/generic?pid=206559',
@@ -354,7 +457,7 @@ class NBCSportsStreamIE(AdobePassIE):
             source_url = video_source['ottStreamUrl']
         is_live = video_source.get('type') == 'live' or video_source.get('status') == 'Live'
         resource = self._get_mvpd_resource('nbcsports', title, video_id, '')
-        token = self._extract_mvpd_auth(url, video_id, 'nbcsports', resource)
+        token = self._extract_mvpd_auth(url, video_id, 'nbcsports', resource, None)  # XXX: None arg needs to be software_statement
         tokenized_url = self._download_json(
             'https://token.playmakerservices.com/cdn',
             video_id, data=json.dumps({
@@ -578,6 +681,7 @@ class NBCOlympicsIE(InfoExtractor):
 
 
 class NBCOlympicsStreamIE(AdobePassIE):
+    _WORKING = False
     IE_NAME = 'nbcolympics:stream'
     _VALID_URL = r'https?://stream\.nbcolympics\.com/(?P<id>[0-9a-z-]+)'
     _TESTS = [
@@ -630,7 +734,8 @@ class NBCOlympicsStreamIE(AdobePassIE):
                 event_config.get('resourceId', 'NBCOlympics'),
                 re.sub(r'[^\w\d ]+', '', event_config['eventTitle']), pid,
                 event_config.get('ratingId', 'NO VALUE'))
-            media_token = self._extract_mvpd_auth(url, pid, event_config.get('requestorId', 'NBCOlympics'), ap_resource)
+            # XXX: The None arg below needs to be the software_statement for this requestor
+            media_token = self._extract_mvpd_auth(url, pid, event_config.get('requestorId', 'NBCOlympics'), ap_resource, None)
 
             source_url = self._download_json(
                 'https://tokens.playmakerservices.com/', pid, 'Retrieving tokenized URL',

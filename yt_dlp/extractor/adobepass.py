@@ -11,7 +11,6 @@ from ..networking.exceptions import HTTPError
 from ..utils import (
     NO_DEFAULT,
     ExtractorError,
-    filter_dict,
     parse_qs,
     unescapeHTML,
     unified_timestamp,
@@ -1476,6 +1475,12 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
             if authn_token and is_expired(authn_token, 'simpleTokenExpires'):
                 authn_token = None
             if not authn_token:
+                if not mso_id:
+                    raise_mvpd_required()
+                username, password = self._get_login_info('ap_username', 'ap_password', mso_id)
+                if not username or not password:
+                    raise_mvpd_required()
+
                 device_info, urlh = self._download_json_handle(
                     'https://sp.auth.adobe.com/indiv/devices',
                     video_id, 'Registering device with Adobe',
@@ -1517,29 +1522,19 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
                         'Authorization': f'Bearer {access_token}',
                     })['code']
 
-                if mso_id:
-                    username, password = self._get_login_info('ap_username', 'ap_password', mso_id)
-                    if not username or not password:
-                        raise_mvpd_required()
+                provider_redirect_page_res = self._download_webpage_handle(
+                    self._SERVICE_PROVIDER_TEMPLATE % 'authenticate/saml', video_id,
+                    'Downloading Provider Redirect Page', query={
+                        'noflash': 'true',
+                        'mso_id': mso_id,
+                        'requestor_id': requestor_id,
+                        'no_iframe': 'false',
+                        'domain_name': 'adobe.com',
+                        'redirect_url': url,
+                        'reg_code': reg_code,
+                    }, headers=self._get_mso_headers(mso_info))
 
-                    provider_redirect_page_res = self._download_webpage_handle(
-                        self._SERVICE_PROVIDER_TEMPLATE % 'authenticate/saml', video_id,
-                        'Downloading Provider Redirect Page', query=filter_dict({
-                            'noflash': 'true',
-                            'mso_id': mso_id,
-                            'requestor_id': requestor_id,
-                            'no_iframe': 'false',
-                            'domain_name': 'adobe.com',
-                            'redirect_url': url,
-                            'reg_code': reg_code,
-                        }), headers=self._get_mso_headers(mso_info))
-
-                elif not self._cookies_passed:
-                    raise_mvpd_required()
-
-                if not mso_id:
-                    pass
-                elif mso_id == 'Comcast_SSO':
+                if mso_id == 'Comcast_SSO':
                     # Comcast page flow varies by video site and whether you
                     # are on Comcast's network.
                     provider_redirect_page, urlh = provider_redirect_page_res
@@ -1790,10 +1785,10 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
                     self._request_webpage(
                         'https://sp.auth.adobe.com/adobe-services/oauth2', video_id,
                         'Authenticating with Adobe', 'Failed to authenticate with Adobe',
-                        query=filter_dict({
+                        query={
                             'code': fubo_response['code'],
                             'state': fubo_response['state'],
-                        }))
+                        })
                 else:
                     # Some providers (e.g. DIRECTV NOW) have another meta refresh
                     # based redirect that should be followed.
@@ -1820,11 +1815,11 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
                 try:
                     session = self._download_webpage(
                         self._SERVICE_PROVIDER_TEMPLATE % 'session', video_id,
-                        'Retrieving Session', data=urlencode_postdata(filter_dict({
+                        'Retrieving Session', data=urlencode_postdata({
                             '_method': 'GET',
                             'requestor_id': requestor_id,
                             'reg_code': reg_code,
-                        })), headers=mvpd_headers)
+                        }), headers=mvpd_headers)
                 except ExtractorError as e:
                     if not mso_id and isinstance(e.cause, HTTPError) and e.cause.status == 401:
                         raise_mvpd_required()

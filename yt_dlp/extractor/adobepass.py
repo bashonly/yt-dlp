@@ -1468,8 +1468,7 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
         }
 
         guid = xml_text(resource, 'guid') if '<' in resource else resource
-        count = 0
-        while count < 2:
+        for _ in range(2):
             requestor_info = self.cache.load(self._MVPD_CACHE, requestor_id) or {}
             authn_token = requestor_info.get('authn_token')
             if authn_token and is_expired(authn_token, 'simpleTokenExpires'):
@@ -1826,7 +1825,6 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
                     raise
                 if '<pendingLogout' in session:
                     self.cache.store(self._MVPD_CACHE, requestor_id, {})
-                    count += 1
                     continue
                 authn_token = unescapeHTML(xml_text(session, 'authnToken'))
                 requestor_info['authn_token'] = authn_token
@@ -1847,7 +1845,6 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
                     }), headers=mvpd_headers)
                 if '<pendingLogout' in authorize:
                     self.cache.store(self._MVPD_CACHE, requestor_id, {})
-                    count += 1
                     continue
                 if '<error' in authorize:
                     raise ExtractorError(xml_text(authorize, 'details'), expected=True)
@@ -1870,6 +1867,5 @@ class AdobePassIE(InfoExtractor):  # XXX: Conventionally, base classes should en
                 }), headers=mvpd_headers)
             if '<pendingLogout' in short_authorize:
                 self.cache.store(self._MVPD_CACHE, requestor_id, {})
-                count += 1
                 continue
             return short_authorize

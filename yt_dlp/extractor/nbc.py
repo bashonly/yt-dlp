@@ -36,12 +36,46 @@ from ..utils.traversal import require, traverse_obj
 
 
 class NBCUniversalBaseIE(AdobePassIE):
+    _GEO_COUNTRIES = ['US']
+    _GEO_BYPASS = False
+    _M3U8_RE = r'https?://[^/?#]+/prod/[\w-]+/(?P<folders>[^?#]+/)cmaf/mpeg_(?:cbcs|cenc)\w*/master_cmaf\w*\.m3u8'
+
+    def _download_nbcu_smil_and_extract_m3u8_url(self, tp_path, video_id, query):
+        smil = self._download_xml(
+            f'https://link.theplatform.com/s/{tp_path}', video_id,
+            'Downloading SMIL manifest', 'Failed to download SMIL manifest', query={
+                **query,
+                'format': 'SMIL',  # XXX: Do not confuse "format" with "formats"
+                'manifest': 'm3u',
+                'switch': 'HLSServiceSecure',  # Or else we get broken mp4 http URLs instead of HLS
+            }, headers=self.geo_verification_headers())
+
+        ns = f'//{{{default_ns}}}'
+        if url := traverse_obj(smil, (f'{ns}video/@src', lambda _, v: determine_ext(v) == 'm3u8', any)):
+            return url
+
+        exc = traverse_obj(smil, (f'{ns}param', lambda _, v: v.get('name') == 'exception', '@value', any))
+        if exc == 'GeoLocationBlocked':
+            self.raise_geo_restricted(countries=self._GEO_COUNTRIES)
+        raise ExtractorError(traverse_obj(smil, (f'{ns}ref/@abstract', ..., any)), expected=exc == 'Expired')
+
     def _extract_nbcu_formats_and_subtitles(self, tp_path, video_id, query):
-        m3u8_url = self._request_webpage(
-            HEADRequest(f'https://link.theplatform.com/s/{tp_path}/stream.m3u8'),
-            video_id, 'Checking m3u8 URL', query=query).url
-        if 'mpeg_cenc' in m3u8_url or 'mpeg_cbcs' in m3u8_url:
+        # formats='mpeg4' will return either a working m3u8 URL or an m3u8 template for non-DRM HLS
+        # formats='m3u+none,mpeg4' may return DRM HLS but w/the "folders" needed for non-DRM template
+        query['formats'] = 'm3u+none,mpeg4'
+        m3u8_url = self._download_nbcu_smil_and_extract_m3u8_url(tp_path, video_id, query)
+
+        if mobj := re.fullmatch(self._M3U8_RE, m3u8_url):
+            query['formats'] = 'mpeg4'
+            m3u8_tmpl = self._download_nbcu_smil_and_extract_m3u8_url(tp_path, video_id, query)
+            # Example: https://vod-lf-oneapp-prd.akamaized.net/prod/video/{folders}master_hls.m3u8
+            if '{folders}' in m3u8_tmpl:
+                self.write_debug('Found m3u8 URL template, formatting URL path')
+            m3u8_url = m3u8_tmpl.format(folders=mobj.group('folders'))
+
+        if '/mpeg_cenc' in m3u8_url or '/mpeg_cbcs' in m3u8_url:
             self.report_drm(video_id)
+
         return self._extract_m3u8_formats_and_subtitles(m3u8_url, video_id, 'mp4', m3u8_id='hls')
 
     def _download_theplatform_metadata(self, path, video_id, fatal=False):
@@ -50,17 +84,58 @@ class NBCUniversalBaseIE(AdobePassIE):
             f'https://link.theplatform.com/s/{path}', video_id,
             fatal=fatal, query={'format': 'preview'}) or {}
 
+    @staticmethod
+    def _parse_theplatform_metadata(tp_metadata):
+        # TODO: Replace ThePlatformBaseIE method with this one and subclass from ThePlatformBaseIE
+        def site_specific_filter(*fields):
+            return lambda k, v: v and k.endswith(tuple(f'${f}' for f in fields))
+
+        info = traverse_obj(tp_metadata, {
+            'title': ('title', {str}),
+            'episode': ('title', {str}),
+            'description': ('description', {str}),
+            'thumbnail': ('defaultThumbnailUrl', {url_or_none}),
+            'duration': ('duration', {float_or_none(scale=1000)}),
+            'timestamp': ('pubDate', {float_or_none(scale=1000)}),
+            'uploader': ('billingCode', {str}),
+            'creators': ('author', {str}, filter, all, filter),
+            'categories': (
+                'categories', lambda _, v: v.get('label') in ['category', None],
+                'name', {str}, filter, all, filter),
+            'tags': ('keywords', {str}, filter, {lambda x: re.split(r'[;,]\s?', x)}, filter),
+            'age_limit': ('ratings', ..., 'rating', {parse_age_limit}, any),
+            'season_number': (site_specific_filter('seasonNumber'), {int_or_none}, any),
+            'episode_number': (site_specific_filter('episodeNumber', 'airOrder'), {int_or_none}, any),
+            'series': (site_specific_filter('show', 'seriesTitle', 'seriesShortTitle'), (None, ...), {str}, any),
+            'location': (site_specific_filter('region'), {str}, any),
+            'media_type': (site_specific_filter('programmingType', 'type'), {str}, any),
+        })
+
+        chapters = traverse_obj(tp_metadata, ('chapters', ..., {
+            'start_time': ('startTime', {float_or_none(scale=1000)}),
+            'end_time': ('endTime', {float_or_none(scale=1000)}),
+        }))
+        # Ignore pointless single chapters from short videos that span the entire video's duration
+        if len(chapters) > 1 or traverse_obj(chapters, (0, 'end_time')):
+            info['chapters'] = chapters
+
+        info['subtitles'] = {}
+        for caption in traverse_obj(tp_metadata, ('captions', lambda _, v: url_or_none(v['src']))):
+            info['subtitles'].setdefault(caption.get('lang') or 'en', []).append({
+                'url': caption['src'],
+                'ext': mimetype2ext(caption.get('type')),
+            })
+
+        return info
+
     def _extract_nbcu_video(self, url, display_id, old_ie_key=None):
         webpage = self._download_webpage(url, display_id)
         settings = self._search_json(
             r'<script[^>]+data-drupal-selector="drupal-settings-json"[^>]*>',
             webpage, 'settings', display_id)
-        tve = extract_attributes(get_element_html_by_class('tve-video-deck-app', webpage) or '')
-        query = {
-            'manifest': 'm3u',
-            'formats': 'm3u+none,mpeg4',
-        }
 
+        query = {}
+        tve = extract_attributes(get_element_html_by_class('tve-video-deck-app', webpage) or '')
         if tve:
             account_pid = tve.get('data-mpx-media-account-pid') or tve['data-mpx-account-pid']
             account_id = tve['data-mpx-media-account-id']
@@ -73,13 +148,9 @@ class NBCUniversalBaseIE(AdobePassIE):
                 resource = self._get_mvpd_resource(
                     tve.get('data-adobe-pass-resource-id') or auth['adobePassResourceId'],
                     tve['data-title'], release_pid, tve.get('data-rating'))
-                query.update({
-                    'formats': 'mpeg4',
-                    'switch': 'HLSServiceSecure',
-                    'auth': self._extract_mvpd_auth(
-                        url, release_pid, auth['adobePassRequestorId'],
-                        resource, auth['adobePassSoftwareStatement']),
-                })
+                query['auth'] = self._extract_mvpd_auth(
+                    url, release_pid, auth['adobePassRequestorId'],
+                    resource, auth['adobePassSoftwareStatement'])
         else:
             ls_playlist = traverse_obj(settings, (
                 'ls_playlist', lambda _, v: v['defaultGuid'], any, {require('LS playlist')}))
@@ -91,32 +162,11 @@ class NBCUniversalBaseIE(AdobePassIE):
         tp_path = f'{account_pid}/media/guid/{account_id}/{video_id}'
         formats, subtitles = self._extract_nbcu_formats_and_subtitles(tp_path, video_id, query)
         tp_metadata = self._download_theplatform_metadata(tp_path, video_id)
-
-        chapters = traverse_obj(tp_metadata, ('chapters', ..., {
-            'start_time': ('startTime', {float_or_none(scale=1000)}),
-            'end_time': ('endTime', {float_or_none(scale=1000)}),
-        }))
-        # Prune pointless single chapters that span the entire duration from short videos
-        if len(chapters) == 1 and not traverse_obj(chapters, (0, 'end_time')):
-            chapters = None
+        parsed_info = self._parse_theplatform_metadata(tp_metadata)
+        self._merge_subtitles(parsed_info['subtitles'], target=subtitles)
 
         return {
-            'id': video_id,
-            'display_id': display_id,
-            'formats': formats,
-            'subtitles': subtitles,
-            'chapters': chapters,
-            **traverse_obj(tp_metadata, {
-                'title': ('title', {str}),
-                'description': ('description', {str}),
-                'duration': ('duration', {float_or_none(scale=1000)}),
-                'timestamp': ('pubDate', {float_or_none(scale=1000)}),
-                'season_number': (('pl1$seasonNumber', 'nbcu$seasonNumber'), {int_or_none}),
-                'episode_number': (('pl1$episodeNumber', 'nbcu$episodeNumber'), {int_or_none}),
-                'series': (('pl1$show', 'nbcu$show'), (None, ...), {str}),
-                'episode': ('title', {str}),
-                'age_limit': ('ratings', ..., 'rating', {parse_age_limit}),
-            }, get_all=False),
+            **parsed_info,
             **traverse_obj(metadata, {
                 'title': ('title', {str}),
                 'description': ('description', {str}),
@@ -128,13 +178,16 @@ class NBCUniversalBaseIE(AdobePassIE):
                 'episode': ('episodeTitle', {str}),
                 'series': ('show', {str}),
             }),
+            'id': video_id,
+            'display_id': display_id,
+            'formats': formats,
+            'subtitles': subtitles,
             '_old_archive_ids': [make_archive_id(old_ie_key, video_id)] if old_ie_key else None,
         }
 
 
 class NBCIE(NBCUniversalBaseIE):
-    _VALID_URL = r'https?(?P<permalink>://(?:www\.)?nbc\.com/(?:classic-tv/)?[^/]+/video/[^/]+/(?P<id>(?:NBCE|n)?\d+))'
-
+    _VALID_URL = r'https?(?P<permalink>://(?:www\.)?nbc\.com/(?:classic-tv/)?[^/?#]+/video/[^/?#]+/(?P<id>\w+))'
     _TESTS = [
         {
             'url': 'http://www.nbc.com/the-tonight-show/video/jimmy-fallon-surprises-fans-at-ben-jerrys/2848237',
@@ -150,47 +203,20 @@ class NBCIE(NBCUniversalBaseIE):
                 'episode_number': 86,
                 'season': 'Season 2',
                 'season_number': 2,
-                'series': 'Tonight Show: Jimmy Fallon',
-                'duration': 237.0,
-                'chapters': 'count:1',
-                'tags': 'count:4',
+                'series': 'Tonight',
+                'duration': 236.504,
+                'tags': 'count:2',
                 'thumbnail': r're:https?://.+\.jpg',
                 'categories': ['Series/The Tonight Show Starring Jimmy Fallon'],
                 'media_type': 'Full Episode',
+                'age_limit': 14,
+                '_old_archive_ids': ['theplatform 2848237'],
             },
             'params': {
                 'skip_download': 'm3u8',
             },
         },
         {
-            'url': 'http://www.nbc.com/saturday-night-live/video/star-wars-teaser/2832821',
-            'info_dict': {
-                'id': '2832821',
-                'ext': 'mp4',
-                'title': 'Star Wars Teaser',
-                'description': 'md5:0b40f9cbde5b671a7ff62fceccc4f442',
-                'timestamp': 1417852800,
-                'upload_date': '20141206',
-                'uploader': 'NBCU-COM',
-            },
-            'skip': 'page not found',
-        },
-        {
-            # HLS streams requires the 'hdnea3' cookie
-            'url': 'http://www.nbc.com/Kings/video/goliath/n1806',
-            'info_dict': {
-                'id': '101528f5a9e8127b107e98c5e6ce4638',
-                'ext': 'mp4',
-                'title': 'Goliath',
-                'description': 'When an unknown soldier saves the life of the King\'s son in battle, he\'s thrust into the limelight and politics of the kingdom.',
-                'timestamp': 1237100400,
-                'upload_date': '20090315',
-                'uploader': 'NBCU-COM',
-            },
-            'skip': 'page not found',
-        },
-        {
-            # manifest url does not have extension
             'url': 'https://www.nbc.com/the-golden-globe-awards/video/oprah-winfrey-receives-cecil-b-de-mille-award-at-the-2018-golden-globes/3646439',
             'info_dict': {
                 'id': '3646439',
@@ -200,47 +226,46 @@ class NBCIE(NBCUniversalBaseIE):
                 'episode_number': 1,
                 'season': 'Season 75',
                 'season_number': 75,
-                'series': 'The Golden Globe Awards',
+                'series': 'Golden Globes',
                 'description': 'Oprah Winfrey receives the Cecil B. de Mille Award at the 75th Annual Golden Globe Awards.',
                 'uploader': 'NBCU-COM',
                 'upload_date': '20180107',
                 'timestamp': 1515312000,
-                'duration': 570.0,
+                'duration': 569.703,
                 'tags': 'count:8',
                 'thumbnail': r're:https?://.+\.jpg',
-                'chapters': 'count:1',
+                'media_type': 'Highlight',
+                'age_limit': 0,
+                'categories': ['Series/The Golden Globe Awards'],
+                '_old_archive_ids': ['theplatform 3646439'],
             },
             'params': {
                 'skip_download': 'm3u8',
             },
         },
         {
-            # new video_id format
-            'url': 'https://www.nbc.com/quantum-leap/video/bens-first-leap-nbcs-quantum-leap/NBCE125189978',
+            # Needs to be extracted from webpage instead of GraphQL
+            'url': 'https://www.nbc.com/paris2024/video/ali-truwit-found-purpose-pool-after-her-life-changed/para24_sww_alitruwittodayshow_240823',
             'info_dict': {
-                'id': 'NBCE125189978',
+                'id': 'para24_sww_alitruwittodayshow_240823',
                 'ext': 'mp4',
-                'title': 'Ben\'s First Leap | NBC\'s Quantum Leap',
-                'description': 'md5:a82762449b7ec4bb83291a7b355ebf8e',
-                'uploader': 'NBCU-COM',
-                'series': 'Quantum Leap',
-                'season': 'Season 1',
-                'season_number': 1,
-                'episode': 'Ben\'s First Leap | NBC\'s Quantum Leap',
-                'episode_number': 1,
-                'duration': 170.171,
-                'chapters': [],
-                'timestamp': 1663956155,
-                'upload_date': '20220923',
-                'tags': 'count:10',
-                'age_limit': 0,
+                'title': 'Ali Truwit found purpose in the pool after her life changed',
+                'description': 'md5:c16d7489e1516593de1cc5d3f39b9bdb',
+                'uploader': 'NBCU-SPORTS',
+                'duration': 311.077,
                 'thumbnail': r're:https?://.+\.jpg',
-                'categories': ['Series/Quantum Leap 2022'],
-                'media_type': 'Highlight',
+                'episode': 'Ali Truwit found purpose in the pool after her life changed',
+                'timestamp': 1724435902.0,
+                'upload_date': '20240823',
+                '_old_archive_ids': ['theplatform para24_sww_alitruwittodayshow_240823'],
             },
             'params': {
                 'skip_download': 'm3u8',
             },
+        },
+        {
+            'url': 'https://www.nbc.com/quantum-leap/video/bens-first-leap-nbcs-quantum-leap/NBCE125189978',
+            'only_matching': True,
         },
         {
             'url': 'https://www.nbc.com/classic-tv/charles-in-charge/video/charles-in-charge-pilot/n3310',
@@ -299,61 +324,49 @@ class NBCIE(NBCUniversalBaseIE):
                 }),
             })['data']['bonanzaPage']['metadata']
 
-        query = {
-            'manifest': 'm3u',
-            'formats': 'm3u+none,mpeg4',
-            'switch': 'HLSServiceSecure',
-        }
+        if not video_data:
+            # Some videos are not available via GraphQL API
+            webpage = self._download_webpage(url, video_id)
+            video_data = self._search_json(
+                r'<script>\s*PRELOAD\s*=', webpage, 'video data',
+                video_id)['pages'][urllib.parse.urlparse(url).path]['base']['metadata']
+
         video_id = video_data['mpxGuid']
         tp_path = f'NnzsPC/media/guid/{video_data["mpxAccountId"]}/{video_id}'
-        tpm = self._download_theplatform_metadata(tp_path, video_id, fatal=True)
-        title = tpm.get('title') or video_data.get('secondaryTitle')
+        tpm = self._download_theplatform_metadata(tp_path, video_id)
+        title = traverse_obj(tpm, ('title', {str})) or video_data.get('secondaryTitle')
+        query = {}
         if video_data.get('locked'):
             resource = self._get_mvpd_resource(
                 video_data['resourceId'], title, video_id, video_data.get('rating'))
             query['auth'] = self._extract_mvpd_auth(
                 url, video_id, 'nbcentertainment', resource, self._SOFTWARE_STATEMENT)
-            query['formats'] = 'mpeg4'
 
         formats, subtitles = self._extract_nbcu_formats_and_subtitles(tp_path, video_id, query)
-
-        # Empty string or 0 can be valid values for these. So the check must be `is None`
-        description = video_data.get('description')
-        if description is None:
-            description = tpm.get('description')
-        episode_number = int_or_none(video_data.get('episodeNumber'))
-        if episode_number is None:
-            episode_number = int_or_none(tpm.get('nbcu$airOrder'))
-        rating = video_data.get('rating')
-        if rating is None:
-            try_get(tpm, lambda x: x['ratings'][0]['rating'])
-        season_number = int_or_none(video_data.get('seasonNumber'))
-        if season_number is None:
-            season_number = int_or_none(tpm.get('nbcu$seasonNumber'))
-        series = video_data.get('seriesShortTitle')
-        if series is None:
-            series = tpm.get('nbcu$seriesShortTitle')
-        tags = video_data.get('keywords')
-        if tags is None or len(tags) == 0:
-            tags = tpm.get('keywords')
+        parsed_info = self._parse_theplatform_metadata(tpm)
+        self._merge_subtitles(parsed_info['subtitles'], target=subtitles)
 
         return {
+            **traverse_obj(video_data, {
+                'description': ('description', {str}, filter),
+                'episode': ('secondaryTitle', {str}, filter),
+                'episode_number': ('episodeNumber', {int_or_none}),
+                'season_number': ('seasonNumber', {int_or_none}),
+                'age_limit': ('rating', {parse_age_limit}),
+                'tags': ('keywords', ..., {str}, filter, all, filter),
+                'series': ('seriesShortTitle', {str}),
+            }),
+            **parsed_info,
+            'id': video_id,
+            'title': title,
             'formats': formats,
             'subtitles': subtitles,
-            'age_limit': parse_age_limit(rating),
-            'description': description,
-            'episode': title,
-            'episode_number': episode_number,
-            'id': video_id,
-            'season_number': season_number,
-            'series': series,
-            'tags': tags,
-            'title': title,
             '_old_archive_ids': [make_archive_id('ThePlatform', video_id)],
         }
 
 
 class NBCSportsVPlayerIE(InfoExtractor):
+    _WORKING = False
     _VALID_URL_BASE = r'https?://(?:vplayer\.nbcsports\.com|(?:www\.)?nbcsports\.com/vplayer)/'
     _VALID_URL = _VALID_URL_BASE + r'(?:[^/]+/)+(?P<id>[0-9a-zA-Z_]+)'
     _EMBED_REGEX = [rf'(?:iframe[^>]+|var video|div[^>]+data-(?:mpx-)?)[sS]rc\s?=\s?"(?P<url>{_VALID_URL_BASE}[^\"]+)']
@@ -388,6 +401,7 @@ class NBCSportsVPlayerIE(InfoExtractor):
 
 
 class NBCSportsIE(InfoExtractor):
+    _WORKING = False
     _VALID_URL = r'https?://(?:www\.)?nbcsports\.com//?(?!vplayer/)(?:[^/]+/)+(?P<id>[0-9a-z-]+)'
 
     _TESTS = [{
@@ -637,22 +651,26 @@ class NBCOlympicsIE(InfoExtractor):
     IE_NAME = 'nbcolympics'
     _VALID_URL = r'https?://www\.nbcolympics\.com/videos?/(?P<id>[0-9a-z-]+)'
 
-    _TEST = {
+    _TESTS = [{
         # Geo-restricted to US
-        'url': 'http://www.nbcolympics.com/video/justin-roses-son-leo-was-tears-after-his-dad-won-gold',
-        'md5': '54fecf846d05429fbaa18af557ee523a',
+        'url': 'https://www.nbcolympics.com/videos/watch-final-minutes-team-usas-mens-basketball-gold',
         'info_dict': {
-            'id': 'WjTBzDXx5AUq',
-            'display_id': 'justin-roses-son-leo-was-tears-after-his-dad-won-gold',
+            'id': 'SAwGfPlQ1q01',
             'ext': 'mp4',
-            'title': 'Rose\'s son Leo was in tears after his dad won gold',
-            'description': 'Olympic gold medalist Justin Rose gets emotional talking to the impact his win in men\'s golf has already had on his children.',
-            'timestamp': 1471274964,
-            'upload_date': '20160815',
+            'display_id': 'watch-final-minutes-team-usas-mens-basketball-gold',
+            'title': 'Watch the final minutes of Team USA\'s men\'s basketball gold',
+            'description': 'md5:f704f591217305c9559b23b877aa8d31',
             'uploader': 'NBCU-SPORTS',
+            'duration': 387.053,
+            'thumbnail': r're:https://.+/.+\.jpg',
+            'chapters': [],
+            'timestamp': 1723346984,
+            'upload_date': '20240811',
         },
-        'skip': '404 Not Found',
-    }
+    }, {
+        'url': 'http://www.nbcolympics.com/video/justin-roses-son-leo-was-tears-after-his-dad-won-gold',
+        'only_matching': True,
+    }]
 
     def _real_extract(self, url):
         display_id = self._match_id(url)

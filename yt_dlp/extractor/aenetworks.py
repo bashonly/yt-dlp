@@ -132,10 +132,11 @@ class AENetworksIE(AENetworksBaseIE):
             'tags': 'count:14',
             'categories': ['Mountain Men'],
             'episode_number': 1,
-            'episode': 'Episode 1',
+            'episode': 'Winter Is Coming',
             'season': 'Season 1',
             'season_number': 1,
             'series': 'Mountain Men',
+            'age_limit': 0,
         },
         'params': {
             # m3u8 download
@@ -157,18 +158,18 @@ class AENetworksIE(AENetworksBaseIE):
             'thumbnail': r're:^https?://.*\.jpe?g$',
             'chapters': 'count:4',
             'tags': 'count:23',
-            'episode': 'Episode 1',
+            'episode': 'Inlawful Entry',
             'episode_number': 1,
             'season': 'Season 9',
             'season_number': 9,
             'series': 'Duck Dynasty',
+            'age_limit': 0,
         },
         'params': {
             # m3u8 download
             'skip_download': True,
         },
         'add_ie': ['ThePlatform'],
-        'skip': 'This video is only available for users of participating TV providers.',
     }, {
         'url': 'http://www.fyi.tv/shows/tiny-house-nation/season-1/episode-8',
         'only_matching': True,

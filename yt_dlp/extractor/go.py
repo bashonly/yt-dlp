@@ -74,6 +74,7 @@ class GoIE(AdobePassIE):
             'upload_date': '20250501',
         },
         'params': {'skip_download': 'm3u8'},
+        'skip': 'This video requires AdobePass MSO credentials',
     }, {
         'url': 'https://disneynow.com/episode/21029660-ba06-4406-adb0-a9a78f6e265e/playlist/PL553044961',
         'info_dict': {
@@ -93,6 +94,7 @@ class GoIE(AdobePassIE):
             'upload_date': '20250511',
         },
         'params': {'skip_download': 'm3u8'},
+        'skip': 'This video requires AdobePass MSO credentials',
     }, {
         'url': 'https://fxnow.fxnetworks.com/episode/09f4fa6f-c293-469e-aebe-32c9ca5842a7/playlist/PL554408064',
         'info_dict': {
@@ -112,6 +114,7 @@ class GoIE(AdobePassIE):
             'upload_date': '20241022',
         },
         'params': {'skip_download': 'm3u8'},
+        'skip': 'This video requires AdobePass MSO credentials',
     }, {
         'url': 'https://www.freeform.com/episode/bda0eaf7-761a-4838-aa44-96f794000844/playlist/PL553044961',
         'info_dict': {

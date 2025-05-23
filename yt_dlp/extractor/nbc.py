@@ -6,7 +6,7 @@ import xml.etree.ElementTree
 
 from .adobepass import AdobePassIE
 from .common import InfoExtractor
-from .theplatform import ThePlatformIE, default_ns
+from .theplatform import ThePlatformBaseIE, ThePlatformIE, default_ns
 from ..networking import HEADRequest
 from ..utils import (
     ExtractorError,
@@ -35,7 +35,7 @@ from ..utils import (
 from ..utils.traversal import require, traverse_obj
 
 
-class NBCUniversalBaseIE(AdobePassIE):
+class NBCUniversalBaseIE(ThePlatformBaseIE):
     _GEO_COUNTRIES = ['US']
     _GEO_BYPASS = False
     _M3U8_RE = r'https?://[^/?#]+/prod/[\w-]+/(?P<folders>[^?#]+/)cmaf/mpeg_(?:cbcs|cenc)\w*/master_cmaf\w*\.m3u8'
@@ -78,56 +78,6 @@ class NBCUniversalBaseIE(AdobePassIE):
 
         return self._extract_m3u8_formats_and_subtitles(m3u8_url, video_id, 'mp4', m3u8_id='hls')
 
-    def _download_theplatform_metadata(self, path, video_id, fatal=False):
-        # TODO: Replace ThePlatformBaseIE method with this one and subclass from ThePlatformBaseIE
-        return self._download_json(
-            f'https://link.theplatform.com/s/{path}', video_id,
-            fatal=fatal, query={'format': 'preview'}) or {}
-
-    @staticmethod
-    def _parse_theplatform_metadata(tp_metadata):
-        # TODO: Replace ThePlatformBaseIE method with this one and subclass from ThePlatformBaseIE
-        def site_specific_filter(*fields):
-            return lambda k, v: v and k.endswith(tuple(f'${f}' for f in fields))
-
-        info = traverse_obj(tp_metadata, {
-            'title': ('title', {str}),
-            'episode': ('title', {str}),
-            'description': ('description', {str}),
-            'thumbnail': ('defaultThumbnailUrl', {url_or_none}),
-            'duration': ('duration', {float_or_none(scale=1000)}),
-            'timestamp': ('pubDate', {float_or_none(scale=1000)}),
-            'uploader': ('billingCode', {str}),
-            'creators': ('author', {str}, filter, all, filter),
-            'categories': (
-                'categories', lambda _, v: v.get('label') in ['category', None],
-                'name', {str}, filter, all, filter),
-            'tags': ('keywords', {str}, filter, {lambda x: re.split(r'[;,]\s?', x)}, filter),
-            'age_limit': ('ratings', ..., 'rating', {parse_age_limit}, any),
-            'season_number': (site_specific_filter('seasonNumber'), {int_or_none}, any),
-            'episode_number': (site_specific_filter('episodeNumber', 'airOrder'), {int_or_none}, any),
-            'series': (site_specific_filter('show', 'seriesTitle', 'seriesShortTitle'), (None, ...), {str}, any),
-            'location': (site_specific_filter('region'), {str}, any),
-            'media_type': (site_specific_filter('programmingType', 'type'), {str}, any),
-        })
-
-        chapters = traverse_obj(tp_metadata, ('chapters', ..., {
-            'start_time': ('startTime', {float_or_none(scale=1000)}),
-            'end_time': ('endTime', {float_or_none(scale=1000)}),
-        }))
-        # Ignore pointless single chapters from short videos that span the entire video's duration
-        if len(chapters) > 1 or traverse_obj(chapters, (0, 'end_time')):
-            info['chapters'] = chapters
-
-        info['subtitles'] = {}
-        for caption in traverse_obj(tp_metadata, ('captions', lambda _, v: url_or_none(v['src']))):
-            info['subtitles'].setdefault(caption.get('lang') or 'en', []).append({
-                'url': caption['src'],
-                'ext': mimetype2ext(caption.get('type')),
-            })
-
-        return info
-
     def _extract_nbcu_video(self, url, display_id, old_ie_key=None):
         webpage = self._download_webpage(url, display_id)
         settings = self._search_json(
@@ -161,7 +111,7 @@ class NBCUniversalBaseIE(AdobePassIE):
 
         tp_path = f'{account_pid}/media/guid/{account_id}/{video_id}'
         formats, subtitles = self._extract_nbcu_formats_and_subtitles(tp_path, video_id, query)
-        tp_metadata = self._download_theplatform_metadata(tp_path, video_id)
+        tp_metadata = self._download_theplatform_metadata(tp_path, video_id, fatal=False)
         parsed_info = self._parse_theplatform_metadata(tp_metadata)
         self._merge_subtitles(parsed_info['subtitles'], target=subtitles)
 
@@ -333,7 +283,7 @@ class NBCIE(NBCUniversalBaseIE):
 
         video_id = video_data['mpxGuid']
         tp_path = f'NnzsPC/media/guid/{video_data["mpxAccountId"]}/{video_id}'
-        tpm = self._download_theplatform_metadata(tp_path, video_id)
+        tpm = self._download_theplatform_metadata(tp_path, video_id, fatal=False)
         title = traverse_obj(tpm, ('title', {str})) or video_data.get('secondaryTitle')
         query = {}
         if video_data.get('locked'):

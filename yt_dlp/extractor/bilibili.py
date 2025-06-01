@@ -879,12 +879,17 @@ class BiliBiliBangumiIE(BilibiliBaseIE):
                 'Extracting episode', query={'fnval': 12240, 'ep_id': episode_id},
                 headers=headers))
 
+        geo_blocked = traverse_obj(play_info, (
+            'raw', 'data', 'plugins', lambda _, v: v['name'] == 'AreaLimitPanel', 'config', 'is_block', {bool}, any))
         premium_only = play_info.get('code') == -10403
-        play_info = traverse_obj(play_info, ('result', 'video_info', {dict})) or {}
+        play_info = traverse_obj(play_info, (('result', ('raw', 'data')), 'video_info', {dict}, any)) or {}
 
         formats = self.extract_formats(play_info)
-        if not formats and (premium_only or '成为大会员抢先看' in webpage or '开通大会员观看' in webpage):
-            self.raise_login_required('This video is for premium members only')
+        if not formats:
+            if geo_blocked:
+                self.raise_geo_restricted()
+            elif premium_only or '成为大会员抢先看' in webpage or '开通大会员观看' in webpage:
+                self.raise_login_required('This video is for premium members only')
 
         bangumi_info = self._download_json(
             'https://api.bilibili.com/pgc/view/web/season', episode_id, 'Get episode details',

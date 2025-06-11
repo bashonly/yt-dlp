@@ -1798,6 +1798,8 @@ class InfoExtractor:
 
     def _resolve_nuxt_array(self, array, video_id, *, fatal=True, default=NO_DEFAULT):
         """Resolves Nuxt rich JSON payload arrays"""
+        # Ref: https://github.com/nuxt/nuxt/commit/9e503be0f2a24f4df72a3ccab2db4d3e63511f57
+        #      https://github.com/nuxt/nuxt/pull/19205
         if default is not NO_DEFAULT:
             fatal = False
 
@@ -1807,10 +1809,8 @@ class InfoExtractor:
         def json_reviver(data):
             return json.loads(data)
 
-        # Ref: https://github.com/nuxt/nuxt/commit/9e503be0f2a24f4df72a3ccab2db4d3e63511f57
-        #      https://github.com/nuxt/nuxt/pull/19205
         try:
-            return devalue.parse(array, revivers={
+            gen = devalue.parse_iter(array, revivers={
                 'NuxtError': indirect_reviver,
                 'EmptyShallowRef': json_reviver,
                 'EmptyRef': json_reviver,
@@ -1819,14 +1819,23 @@ class InfoExtractor:
                 'Ref': indirect_reviver,
                 'Reactive': indirect_reviver,
             })
-        except (IndexError, TypeError, ValueError) as e:
-            if default is not NO_DEFAULT:
-                return default
-            error_msg = f'Unable to resolve Nuxt JSON data: {e}'
-            if fatal:
+            while True:
+                try:
+                    error_msg = f'Error resolving Nuxt JSON: {gen.send(None)}'
+                    if fatal:
+                        raise ExtractorError(error_msg, video_id=video_id)
+                    self.report_warning(error_msg, video_id=video_id)
+                except StopIteration as error:
+                    return error.value or ({} if default is NO_DEFAULT else default)
+
+        except (IndexError, TypeError, ValueError) as error:
+            # This branch should be considered a bug imo
+            # all errors should be coded devensively?
+            error_msg = f'Unexpected error resolving Nuxt JSON: {error}'
+            if fatal and default is NO_DEFAULT:
                 raise ExtractorError(error_msg, video_id=video_id)
             self.report_warning(error_msg, video_id=video_id)
-            return {}
+            return {} if default is NO_DEFAULT else default
 
     def _search_nuxt_json(self, webpage, video_id, *, fatal=True, default=NO_DEFAULT):
         """Parses metadata from Nuxt rich JSON payloads embedded in HTML"""

@@ -65,7 +65,7 @@ class HotStarBaseIE(InfoExtractor):
                 'ads': ['non_ssai', 'ssai'],
                 'audio_channel': ['atmos', 'dolby51', 'stereo'],
                 'encryption': ['plain', 'widevine'],  # wv only so we can raise appropriate error
-                'video_codec': ['h265', 'h264'],
+                'video_codec': ['h264'],
                 'ladder': ['tv', 'full'],
                 'resolution': ['4k', 'hd'],
                 'true_resolution': ['4k', 'hd'],

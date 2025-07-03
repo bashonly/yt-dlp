@@ -65,11 +65,11 @@ class HotStarBaseIE(InfoExtractor):
                 'ads': ['non_ssai', 'ssai'],
                 'audio_channel': ['atmos', 'dolby51', 'stereo'],
                 'encryption': ['plain', 'widevine'],  # wv only so we can raise appropriate error
-                'video_codec': ['h264'],
+                'video_codec': ['h264'],  # h265
                 'ladder': ['tv', 'full'],
-                'resolution': ['4k', 'hd'],
-                'true_resolution': ['4k', 'hd'],
-                'dynamic_range': ['hdr', 'sdr'],
+                'resolution': ['hd'],  # 4k
+                'true_resolution': ['hd'],  # 4k
+                'dynamic_range': ['sdr'],  # hdr
             }, separators=(',', ':')),
             'drm_parameters': json.dumps({
                 'widevine_security_level': ['SW_SECURE_DECODE', 'SW_SECURE_CRYPTO'],

@@ -384,7 +384,7 @@ class JSInterpreter:
             return self._named_object(namespace, obj)
 
     @Debugger.wrap_interpreter
-    def interpret_statement(self, stmt, local_vars, allow_recursion=100):
+    def interpret_statement(self, stmt, local_vars, allow_recursion=100, _is_var_declaration=False):
         if allow_recursion < 0:
             raise self.Exception('Recursion limit reached')
         allow_recursion -= 1
@@ -399,13 +399,12 @@ class JSInterpreter:
                 return ret, should_return
 
         m = re.match(r'(?P<var>(?:var|const|let)\s)|return(?:\s+|(?=["\'])|$)|(?P<throw>throw\s+)', stmt)
-        is_var_declaration = False
         if m:
             expr = stmt[len(m.group(0)):].strip()
             if m.group('throw'):
                 raise JS_Throw(self.interpret_expression(expr, local_vars, allow_recursion))
             should_return = not m.group('var')
-            is_var_declaration = bool(m.group('var'))
+            _is_var_declaration = _is_var_declaration or bool(m.group('var'))
         if not expr:
             return None, should_return
 
@@ -590,7 +589,8 @@ class JSInterpreter:
         sub_expressions = list(self._separate(expr))
         if len(sub_expressions) > 1:
             for sub_expr in sub_expressions:
-                ret, should_abort = self.interpret_statement(sub_expr, local_vars, allow_recursion)
+                ret, should_abort = self.interpret_statement(
+                    sub_expr, local_vars, allow_recursion, _is_var_declaration=_is_var_declaration)
                 if should_abort:
                     return ret, True
             return ret, False
@@ -606,7 +606,7 @@ class JSInterpreter:
             if not m.group('index'):
                 eval_result = self._operator(
                     m.group('op'), left_val, m.group('expr'), expr, local_vars, allow_recursion)
-                if is_var_declaration:
+                if _is_var_declaration:
                     local_vars.set_local(m.group('out'), eval_result)
                 else:
                     local_vars[m.group('out')] = eval_result

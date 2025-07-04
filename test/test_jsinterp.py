@@ -502,6 +502,25 @@ class TestJSInterpreter(unittest.TestCase):
                 return P;
             }
         ''', 1)
+        self._test(R'''
+            function f() {
+                var x = function() {
+                    for (var w = 1, M = []; w < 2; w++) switch (w) {
+                        case 1:
+                            M.push("a");
+                        case 2:
+                            M.push("b");
+                    }
+                    return M
+                };
+                var w = "c";
+                var M = "d";
+                var y = x();
+                y.push(w);
+                y.push(M);
+                return y;
+            }
+        ''', ['a', 'b', 'c', 'd'])
 
 
 if __name__ == '__main__':

@@ -2315,6 +2315,20 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         return varname, interpret_global_var(varvalue, {}, allow_recursion=10)
 
     def _fixup_n_function_code(self, argnames, nsig_code, jscode, player_url):
+        # Fixup global funcs
+        jsi = JSInterpreter(jscode)
+        # TODO: Extract automaticly from first array definition in nsig func
+        global_funcs = ['hRx', 'S1R', 'EMR', 'p51', 'Zz_', 'Wyx', 'w5y', 'ulF', 'fUp', 'Fyl', 'izy', '$_R']
+        for func_name in global_funcs:
+            try:
+                func_args, func_code = jsi.extract_function_code(func_name)
+                nsig_code = f'var {func_name} = function({", ".join(func_args)}) {{ {func_code} }}; {nsig_code}'
+            except Exception:
+                self.report_warning(join_nonempty(
+                    f'Unable to extract function {func_name} from player JS',
+                    player_url and f'        player = {player_url}', delim='\n'), only_once=True)
+
+        # Fixup global array
         varname, global_list = self._interpret_player_js_global_var(jscode, player_url)
         if varname and global_list:
             nsig_code = f'var {varname}={json.dumps(global_list)}; {nsig_code}'
@@ -2322,6 +2336,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             varname = 'dlp_wins'
             global_list = []
 
+        # Fixup typeof check
         undefined_idx = global_list.index('undefined') if 'undefined' in global_list else r'\d+'
         fixed_code = re.sub(
             fr'''(?x)

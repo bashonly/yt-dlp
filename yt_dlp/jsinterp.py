@@ -222,6 +222,9 @@ class LocalNameSpace(collections.ChainMap):
     def __delitem__(self, key):
         raise NotImplementedError('Deleting is not supported')
 
+    def set_local(self, key, value):
+        self.maps[0][key] = value
+
 
 class Debugger:
     import sys
@@ -396,11 +399,13 @@ class JSInterpreter:
                 return ret, should_return
 
         m = re.match(r'(?P<var>(?:var|const|let)\s)|return(?:\s+|(?=["\'])|$)|(?P<throw>throw\s+)', stmt)
+        is_var_declaration = False
         if m:
             expr = stmt[len(m.group(0)):].strip()
             if m.group('throw'):
                 raise JS_Throw(self.interpret_expression(expr, local_vars, allow_recursion))
             should_return = not m.group('var')
+            is_var_declaration = bool(m.group('var'))
         if not expr:
             return None, should_return
 
@@ -599,8 +604,12 @@ class JSInterpreter:
             left_val = local_vars.get(m.group('out'))
 
             if not m.group('index'):
-                local_vars[m.group('out')] = self._operator(
+                eval_result = self._operator(
                     m.group('op'), left_val, m.group('expr'), expr, local_vars, allow_recursion)
+                if is_var_declaration:
+                    local_vars.set_local(m.group('out'), eval_result)
+                else:
+                    local_vars[m.group('out')] = eval_result
                 return local_vars[m.group('out')], should_return
             elif left_val in (None, JS_Undefined):
                 raise self.Exception(f'Cannot index undefined variable {m.group("out")}', expr)

@@ -2318,7 +2318,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         # Fixup global funcs
         jsi = JSInterpreter(jscode)
         # TODO: Extract automaticly from first array definition in nsig func
-        global_funcs = ['hRx', 'S1R', 'EMR', 'p51', 'Zz_', 'Wyx', 'w5y', 'ulF', 'fUp', 'Fyl', 'izy', '$_R']
+        if player_url and '/e12fbea4/player_ias_tce' in player_url:
+            global_funcs = ['hRx', 'S1R', 'EMR', 'p51', 'Zz_', 'Wyx', 'w5y', 'ulF', 'fUp', 'Fyl', 'izy', '$_R']
+        else:
+            global_funcs = []
         for func_name in global_funcs:
             try:
                 func_args, func_code = jsi.extract_function_code(func_name)

@@ -26,7 +26,7 @@ from ._base import (
 from .pot._director import initialize_pot_director
 from .pot.provider import PoTokenContext, PoTokenRequest
 from ..openload import PhantomJSwrapper
-from ...jsinterp import JSInterpreter
+from ...jsinterp import JSInterpreter, LocalNameSpace
 from ...networking.exceptions import HTTPError
 from ...utils import (
     NO_DEFAULT,
@@ -2312,7 +2312,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
         jsi = JSInterpreter(varcode)
         interpret_global_var = self._cached(jsi.interpret_expression, 'js global list', player_url)
-        return varname, interpret_global_var(varvalue, {}, allow_recursion=10)
+        return varname, interpret_global_var(varvalue, LocalNameSpace(), allow_recursion=10)
 
     def _fixup_n_function_code(self, argnames, nsig_code, jscode, player_url):
         # Fixup global funcs

@@ -601,11 +601,6 @@ class JSInterpreter:
                     return ret, True
             return ret, False
 
-        # Declared variables
-        if _is_var_declaration and re.fullmatch(_NAME_RE, expr):
-            # Register varname in local namespace; set value as JS_Undefined or its pre-existing value
-            local_vars.set_local(expr, local_vars.get_local(expr))
-
         m = re.match(fr'''(?x)
                 (?P<out>{_NAME_RE})(?:\[(?P<index>{_NESTED_BRACKETS})\])?\s*
                 (?P<op>{"|".join(map(re.escape, set(_OPERATORS) - _COMP_OPERATORS))})?
@@ -674,9 +669,17 @@ class JSInterpreter:
             return float('NaN'), should_return
 
         elif m and m.group('return'):
-            ret = local_vars.get(m.group('name'), JS_Undefined)
-            if ret is JS_Undefined:
-                self._undefined_varnames.add(m.group('name'))
+            var = m.group('name')
+            # Declared variables
+            if _is_var_declaration:
+                ret = local_vars.get_local(var)
+                # Register varname in local namespace
+                # Set value as JS_Undefined or its pre-existing value
+                local_vars.set_local(var, ret)
+            else:
+                ret = local_vars.get(var, JS_Undefined)
+                if ret is JS_Undefined:
+                    self._undefined_varnames.add(var)
             return ret, should_return
 
         with contextlib.suppress(ValueError):

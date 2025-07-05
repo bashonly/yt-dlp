@@ -521,6 +521,20 @@ class TestJSInterpreter(unittest.TestCase):
                 return y;
             }
         ''', ['a', 'b', 'c', 'd'])
+        self._test(R'''
+            function f() {
+                var P, Q;
+                var z = 100;
+                var g = function() {
+                    var P, Q; P = 2; Q = 15;
+                    z = 0;
+                    return P+Q;
+                };
+                P = 1; Q = 10;
+                var x = g(), y = 3;
+                return P+Q+x+y+z;
+            }
+        ''', 31)
 
 
 if __name__ == '__main__':

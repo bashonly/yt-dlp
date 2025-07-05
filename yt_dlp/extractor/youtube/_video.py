@@ -1801,6 +1801,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         'tablet': 'player-plasma-ias-tablet-en_US.vflset/base.js',
     }
     _INVERSE_PLAYER_JS_VARIANT_MAP = {v: k for k, v in _PLAYER_JS_VARIANT_MAP.items()}
+    _NSIG_FUNC_CACHE_ID = 'nsig func'
     _DUMMY_STRING = 'dlp_wins'
 
     @classmethod
@@ -2205,7 +2206,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             self.to_screen(f'Extracted nsig function from {player_id}:\n{func_code[1]}\n')
 
         try:
-            extract_nsig = self._cached(self._extract_n_function_from_code, 'nsig func', player_url)
+            extract_nsig = self._cached(self._extract_n_function_from_code, self._NSIG_FUNC_CACHE_ID, player_url)
             ret = extract_nsig(jsi, func_code)(s)
         except JSInterpreter.Exception as e:
             try:
@@ -2340,7 +2341,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
         # Fixup global funcs
         jsi = JSInterpreter(fixed_code)
-        cache_id = ('nsig func', player_url)
+        cache_id = (self._NSIG_FUNC_CACHE_ID, player_url)
         try:
             self._cached(
                 self._extract_n_function_from_code, *cache_id)(jsi, (argnames, fixed_code))(self._DUMMY_STRING)

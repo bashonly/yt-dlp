@@ -1801,6 +1801,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         'tablet': 'player-plasma-ias-tablet-en_US.vflset/base.js',
     }
     _INVERSE_PLAYER_JS_VARIANT_MAP = {v: k for k, v in _PLAYER_JS_VARIANT_MAP.items()}
+    _DUMMY_STRING = 'dlp_wins'
 
     @classmethod
     def suitable(cls, url):
@@ -2320,7 +2321,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         if varname and global_list:
             nsig_code = f'var {varname}={json.dumps(global_list)}; {nsig_code}'
         else:
-            varname = 'dlp_wins'
+            varname = self._DUMMY_STRING
             global_list = []
 
         # Fixup typeof check
@@ -2341,7 +2342,8 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         jsi = JSInterpreter(fixed_code)
         cache_id = ('nsig func', player_url)
         try:
-            self._cached(self._extract_n_function_from_code, *cache_id)(jsi, (argnames, fixed_code))('dlp_wins')
+            self._cached(
+                self._extract_n_function_from_code, *cache_id)(jsi, (argnames, fixed_code))(self._DUMMY_STRING)
         except JSInterpreter.Exception:
             self._player_cache.pop(cache_id, None)
 

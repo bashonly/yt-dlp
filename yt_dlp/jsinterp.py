@@ -225,6 +225,11 @@ class LocalNameSpace(collections.ChainMap):
     def set_local(self, key, value):
         self.maps[0][key] = value
 
+    def get_local(self, key):
+        if key in self.maps[0]:
+            return self.maps[0][key]
+        return JS_Undefined
+
 
 class Debugger:
     import sys
@@ -595,6 +600,11 @@ class JSInterpreter:
                 if should_abort:
                     return ret, True
             return ret, False
+
+        # Declared variables
+        if _is_var_declaration and re.fullmatch(_NAME_RE, expr):
+            # Register varname in local namespace; set value as JS_Undefined or its pre-existing value
+            local_vars.set_local(expr, local_vars.get_local(expr))
 
         m = re.match(fr'''(?x)
                 (?P<out>{_NAME_RE})(?:\[(?P<index>{_NESTED_BRACKETS})\])?\s*

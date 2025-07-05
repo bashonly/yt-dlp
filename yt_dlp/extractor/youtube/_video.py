@@ -2346,9 +2346,8 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             self._player_cache.pop(cache_id, None)
 
         global_funcnames = jsi._undefined_varnames
-
-        jsi = JSInterpreter(jscode)
         debug_names = []
+        jsi = JSInterpreter(jscode)
         for func_name in global_funcnames:
             try:
                 func_args, func_code = jsi.extract_function_code(func_name)

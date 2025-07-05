@@ -2377,7 +2377,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
         func_name = self._extract_n_function_name(jscode, player_url=player_url)
 
-        # XXX: Workaround for the global array variable and lack of `typeof` implementation
+        # XXX: Work around (a) global array variable, (b) `typeof` short-circuit, (c) global functions
         func_code = self._fixup_n_function_code(*jsi.extract_function_code(func_name), jscode, player_url)
 
         return jsi, player_id, func_code

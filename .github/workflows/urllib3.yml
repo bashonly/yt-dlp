@@ -1,0 +1,34 @@
+name: urllib3 Tests
+on:
+  push:
+    paths:
+      - pyproject.toml
+  pull_request:
+    paths:
+      - pyproject.toml
+permissions:
+  contents: read
+
+concurrency:
+  group: core-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  tests:
+    name: urllib3 Tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Install test requirements
+      run: python3 ./devscripts/install_deps.py --include test
+    - name: Run tests
+      timeout-minutes: 15
+      continue-on-error: False
+      run: |
+        python3 -m yt_dlp -v || true  # Print debug head
+        pytest test/test_networking.py::TestHTTPRequestHandler::test_partial_read_then_full_read
+        pytest test/test_networking.py::TestHTTPRequestHandler::test_incompleteread

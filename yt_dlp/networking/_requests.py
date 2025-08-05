@@ -140,9 +140,10 @@ class RequestsResponseAdapter(Response):
 
     def read(self, amt: int | None = None):
         try:
-            # Work around issue with `.read(amt)` then `.read()`
+            # Work around urllib3 2.x issue with `.read(amt)` then `.read()`
             # See: https://github.com/urllib3/urllib3/issues/3636
-            if amt is None:
+            #    & https://github.com/yt-dlp/yt-dlp/issues/13927
+            if urllib3_version >= (2, 0, 0) and amt is None:
                 # Python 3.9 preallocates the whole read buffer, read in chunks
                 read_chunk = functools.partial(self.fp.read, 1 << 20, decode_content=True)
                 return b''.join(iter(read_chunk, b''))

@@ -1,10 +1,11 @@
 services:
-  static:
-    build: static
+  linux:
+    build: linux
     environment:
       channel: ${channel}
       origin: ${origin}
       version: ${version}
+      BASEIMAGE: ${BASEIMAGE}
     volumes:
       - ~/build:/build
       - ../..:/yt-dlp

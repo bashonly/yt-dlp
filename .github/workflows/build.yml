@@ -155,11 +155,10 @@ jobs:
           channel: ${{ inputs.channel }}
           origin: ${{ needs.process.outputs.origin }}
           version: ${{ inputs.version }}
-          BASEIMAGE: ghcr.io/bashonly/manylinux2014_${{ matrix.platform }}_builds:latest
         run: |
           mkdir ~/build
           cd bundle/docker
-          docker compose up --build linux
+          docker compose up --build linux_${{ matrix.platform }}
       - name: Verify --update-to
         if: vars.UPDATE_TO_VERIFICATION
         run: |

@@ -8,3 +8,4 @@ python3.13 -m devscripts.install_deps --include secretstorage --include curl-cff
 python3.13 -m devscripts.make_lazy_extractors
 python3.13 devscripts/update-version.py -c "${channel}" -r "${origin}" "${version}"
 python3.13 -m bundle.pyinstaller
+mv dist/* /build/

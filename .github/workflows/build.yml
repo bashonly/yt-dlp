@@ -12,7 +12,7 @@ on:
       unix:
         default: true
         type: boolean
-      linux_exe:
+      linux:
         default: true
         type: boolean
       macos:
@@ -52,7 +52,7 @@ on:
         description: yt-dlp, yt-dlp.tar.gz
         default: true
         type: boolean
-      linux_exe:
+      linux:
         description: yt-dlp_linux, yt-dlp_linux_aarch64
         default: true
         type: boolean
@@ -134,9 +134,9 @@ jobs:
             yt-dlp.tar.gz
           compression-level: 0
 
-  linux_exe:
+  linux:
     needs: process
-    if: inputs.linux_exe
+    if: inputs.linux
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -436,7 +436,7 @@ jobs:
     needs:
       - process
       - unix
-      - linux_exe
+      - linux
       - macos
       - macos_legacy
       - windows

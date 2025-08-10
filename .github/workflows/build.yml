@@ -172,7 +172,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-bin-${{ github.job }}-${{ matrix.exe }}
+          name: build-bin-${{ github.job }}_${{ matrix.platform }}
           path: |
             ~/build/${{ matrix.exe }}
           compression-level: 0

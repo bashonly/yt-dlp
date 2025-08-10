@@ -159,10 +159,11 @@ jobs:
           mkdir ~/build
           cd bundle/docker
           docker compose up --build linux_${{ matrix.platform }}
+          chmod +x ~/build/${{ matrix.exe }}
+          ~/build/${{ matrix.exe }} --version
       - name: Verify --update-to
         if: vars.UPDATE_TO_VERIFICATION
         run: |
-          chmod +x ~/build/${{ matrix.exe }}
           cp ~/build/${{ matrix.exe }} ~/build/${{ matrix.exe }}_downgraded
           version="$(~/build/${{ matrix.exe }} --version)"
           ~/build/${{ matrix.exe }}_downgraded -v --update-to yt-dlp/yt-dlp@2023.03.04

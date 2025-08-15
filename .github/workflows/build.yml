@@ -317,6 +317,7 @@ jobs:
         run: |
           mkdir -p testbuild && cd testbuild
           python3 -m zipfile -e "../dist/yt-dlp_macos.zip" ./
+          chmod +x ./yt-dlp_macos
           ./yt-dlp_macos -v || true
           ./yt-dlp_macos --version
 

@@ -313,6 +313,13 @@ jobs:
           downgraded_version="$(./dist/yt-dlp_macos_downgraded --version)"
           [[ "$version" != "$downgraded_version" ]]
 
+      - name: Verify onedir
+        run: |
+          mkdir -p testbuild && cd testbuild
+          python3 -m zipfile -e "../dist/yt-dlp_macos.zip" ./
+          ./yt-dlp_macos -v || true
+          ./yt-dlp_macos --version
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:

@@ -30,7 +30,7 @@ jobs:
 
   publish_pypi:
     needs: [release]
-    if: vars.MASTER_PYPI_PROJECT != ''
+    if: vars.MASTER_PYPI_PROJECT
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # mandatory for trusted publishing

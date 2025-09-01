@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   release:
-    if: vars.BUILD_MASTER_TEST != ''
+    if: vars.BUILD_MASTER_TEST
     uses: ./.github/workflows/release.yml
     with:
       prerelease: true

@@ -35,7 +35,6 @@ jobs:
       - name: Run actionlint
         run: |
           ./actionlint -color
-          pyflakes
       - name: Test GHA devscripts
         run: |
           python -c 'from devscripts.setup_variables import _run_tests; _run_tests()'

@@ -34,7 +34,7 @@ jobs:
           chmod +x actionlint
       - name: Run actionlint
         run: |
-          ./actionlint -color
+          ./actionlint -color -verbose
       - name: Test GHA devscripts
         run: |
           python -c 'from devscripts.setup_variables import _run_tests; _run_tests()'

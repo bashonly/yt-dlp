@@ -4,6 +4,24 @@
 # To create a release, dispatch the https://github.com/yt-dlp/yt-dlp/actions/workflows/release.yml workflow on master
 -->
 
+### 2025.09.02.1
+
+#### Core changes
+- [Builds overhaul](https://github.com/yt-dlp/yt-dlp/commit/79574e9abe38a8ba1e70c11a184b90fa0540fa62) ([#3](https://github.com/yt-dlp/yt-dlp/issues/3)) by [bashonly](https://github.com/bashonly)
+- [Fix `--id` deprecation warning](https://github.com/yt-dlp/yt-dlp/commit/76bb46002c9a9655f2b1d29d4840e75e79037cfa) ([#14190](https://github.com/yt-dlp/yt-dlp/issues/14190)) by [seproDev](https://github.com/seproDev)
+- [adjust nightly cron schedule](https://github.com/yt-dlp/yt-dlp/commit/61e769cff4d4666b2d41585822c247b4c7a226bc) by [bashonly](https://github.com/bashonly)
+- [fix release.prepare permissions](https://github.com/yt-dlp/yt-dlp/commit/7de7b11adb9b532790a84ee82a7dd87ea0dc6ffc) by [bashonly](https://github.com/bashonly)
+- [for testing as if this was the official repo](https://github.com/yt-dlp/yt-dlp/commit/5c59aeaabf797d297c846a54a035a5672f9173c9) by [bashonly](https://github.com/bashonly)
+- [make `test_make_label` compatible with forks](https://github.com/yt-dlp/yt-dlp/commit/dd667e95f8b42e4cb7fc5e17f2bb7ee879461381) by [bashonly](https://github.com/bashonly)
+
+#### Extractor changes
+- **googledrive**: [Fix subtitles extraction](https://github.com/yt-dlp/yt-dlp/commit/18fe696df9d60804a8f5cb8cd74f38111d6eb711) ([#14139](https://github.com/yt-dlp/yt-dlp/issues/14139)) by [zakaryan2004](https://github.com/zakaryan2004)
+- **itvbtcc**: [Fix extractor](https://github.com/yt-dlp/yt-dlp/commit/0b51005b4819e7cea222fcbaf8e60391db4f732c) ([#14161](https://github.com/yt-dlp/yt-dlp/issues/14161)) by [garret1317](https://github.com/garret1317)
+- **kick**: vod: [Support ongoing livestream VODs](https://github.com/yt-dlp/yt-dlp/commit/1e28f6bf743627b909135bb9a88537ad2deccaf0) ([#14154](https://github.com/yt-dlp/yt-dlp/issues/14154)) by [InvalidUsernameException](https://github.com/InvalidUsernameException)
+- **lrt**: [Fix extractors](https://github.com/yt-dlp/yt-dlp/commit/ed24640943872c4cf30d7cc4601bec87b50ba03c) ([#14193](https://github.com/yt-dlp/yt-dlp/issues/14193)) by [seproDev](https://github.com/seproDev)
+- **tver**: [Extract more metadata](https://github.com/yt-dlp/yt-dlp/commit/223baa81f6637dcdef108f817180d8d1ae9fa213) ([#14165](https://github.com/yt-dlp/yt-dlp/issues/14165)) by [arabcoders](https://github.com/arabcoders)
+- **vevo**: [Restore extractors](https://github.com/yt-dlp/yt-dlp/commit/d925e92b710153d0d51d030f115b3c87226bc0f0) ([#14203](https://github.com/yt-dlp/yt-dlp/issues/14203)) by [seproDev](https://github.com/seproDev)
+
 ### 2025.09.02
 
 #### Core changes

@@ -198,7 +198,7 @@ jobs:
           rm -rf dist/*
           make pypi-files
           printf '%s\n\n' \
-            'Official repository: <https://github.com/yt-dlp/yt-dlp>' \
+            'Official repository: <https://github.com/bashonly/yt-dlp>' \
             '**PS**: Some links in this document will not work since this is a copy of the README.md from Github' > ./README.md.new
           cat ./README.md >> ./README.md.new && mv -f ./README.md.new ./README.md
           python devscripts/set-variant.py pip -M "You installed yt-dlp with pip or using the wheel from PyPi; Use that to update"
@@ -218,6 +218,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
+          repository-url: https://test.pypi.org/legacy/
           verbose: true
 
   publish:
@@ -246,9 +247,9 @@ jobs:
       - name: Generate release notes
         env:
           REPOSITORY: ${{ github.repository }}
-          BASE_REPO: yt-dlp/yt-dlp
-          NIGHTLY_REPO: yt-dlp/yt-dlp-nightly-builds
-          MASTER_REPO: yt-dlp/yt-dlp-master-builds
+          BASE_REPO: bashonly/yt-dlp
+          NIGHTLY_REPO: bashonly/yt-dlp-nightly-builds
+          MASTER_REPO: bashonly/yt-dlp-master-builds
           DOCS_PATH: ${{ env.TARGET_REPO == github.repository && format('/tree/{0}', env.TARGET_TAG) || '' }}
         run: |
           printf '%s' \
@@ -282,7 +283,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets[needs.prepare.outputs.target_repo_token] }}
           GH_REPO: ${{ needs.prepare.outputs.target_repo }}
-          TITLE_PREFIX: ${{ startswith(env.TARGET_REPO, 'yt-dlp/') && 'yt-dlp ' || '' }}
+          TITLE_PREFIX: ${{ startswith(env.TARGET_REPO, 'bashonly/') && 'yt-dlp ' || '' }}
           TITLE: ${{ inputs.target != env.TARGET_REPO && inputs.target || needs.prepare.outputs.channel }}
         if: |
           inputs.prerelease && env.GH_TOKEN && env.GH_REPO && env.GH_REPO != github.repository
@@ -307,7 +308,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           NOTES_FILE: ${{ inputs.prerelease && 'PRERELEASE_NOTES' || 'RELEASE_NOTES' }}
-          TITLE_PREFIX: ${{ github.repository == 'yt-dlp/yt-dlp' && 'yt-dlp ' || '' }}
+          TITLE_PREFIX: ${{ github.repository == 'bashonly/yt-dlp' && 'yt-dlp ' || '' }}
           TITLE: ${{ env.TARGET_TAG != env.VERSION && format('{0} ', env.TARGET_TAG) || '' }}
           PRERELEASE: ${{ inputs.prerelease && '1' || '0' }}
         if: |

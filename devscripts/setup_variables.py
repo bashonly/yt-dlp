@@ -10,7 +10,7 @@ import json
 from devscripts.utils import calculate_version
 
 
-STABLE_REPOSITORY = 'yt-dlp/yt-dlp'
+STABLE_REPOSITORY = 'bashonly/yt-dlp'
 
 
 def setup_variables(environment):

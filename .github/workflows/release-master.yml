@@ -21,7 +21,7 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       prerelease: true
-      source: ${{ (github.repository != 'yt-dlp/yt-dlp' && vars.MASTER_ARCHIVE_REPO) || 'master' }}
+      source: ${{ (github.repository != 'bashonly/yt-dlp' && vars.MASTER_ARCHIVE_REPO) || 'master' }}
       target: 'master'
     permissions:
       contents: write
@@ -43,4 +43,5 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
+          repository-url: https://test.pypi.org/legacy/
           verbose: true

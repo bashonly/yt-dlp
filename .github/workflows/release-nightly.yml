@@ -1,7 +1,7 @@
 name: Release (nightly)
 on:
   schedule:
-    - cron: '23 23 * * *'
+    - cron: '19 1 * * *'
 permissions:
   contents: read
 
@@ -34,7 +34,7 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       prerelease: true
-      source: ${{ (github.repository != 'yt-dlp/yt-dlp' && vars.NIGHTLY_ARCHIVE_REPO) || 'nightly' }}
+      source: ${{ (github.repository != 'bashonly/yt-dlp' && vars.NIGHTLY_ARCHIVE_REPO) || 'nightly' }}
       target: 'nightly'
     permissions:
       contents: write
@@ -56,4 +56,5 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
+          repository-url: https://test.pypi.org/legacy/
           verbose: true

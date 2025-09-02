@@ -4,11 +4,13 @@ on:
     paths:
       - .github/workflows/*.yml
       - devscripts/setup_variables.py
+      - devscripts/setup_variables_tests.py
       - devscripts/utils.py
   pull_request:
     paths:
       - .github/workflows/*.yml
       - devscripts/setup_variables.py
+      - devscripts/setup_variables_tests.py
       - devscripts/utils.py
 permissions:
   contents: read

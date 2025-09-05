@@ -4,6 +4,29 @@
 # To create a release, dispatch the https://github.com/yt-dlp/yt-dlp/actions/workflows/release.yml workflow on master
 -->
 
+### 2025.09.05
+
+#### Core changes
+- [_make_label final](https://github.com/yt-dlp/yt-dlp/commit/125872d2114a7a401a57318a18660069adb12067) by [bashonly](https://github.com/bashonly)
+- [add devscripts/setup_variables_tests.py path](https://github.com/yt-dlp/yt-dlp/commit/599409b113c04011f5853fb9d2d287605c5c17b3) by [bashonly](https://github.com/bashonly)
+- [adjust workflow tests](https://github.com/yt-dlp/yt-dlp/commit/a148bcffe3893aec0dfa8e485cac9b8ce0ef994f) by [bashonly](https://github.com/bashonly)
+- [fix setup_variables tests](https://github.com/yt-dlp/yt-dlp/commit/25a3fa60bcf295a3b3fbe9cc832b056457b6edd8) by [bashonly](https://github.com/bashonly)
+- [formatting](https://github.com/yt-dlp/yt-dlp/commit/a1de33ff34ea71e70acfb6a1d6b17b2386d8ac6a) by [bashonly](https://github.com/bashonly)
+- [is pyflakes working](https://github.com/yt-dlp/yt-dlp/commit/09820c54471a05390a90ac68eb8b91c1efbad3a2) by [bashonly](https://github.com/bashonly)
+- [it is](https://github.com/yt-dlp/yt-dlp/commit/e766240dab79c7efe01bbbc4c691ba0e675e41e1) by [bashonly](https://github.com/bashonly)
+- [move setup_variables tests to separate script](https://github.com/yt-dlp/yt-dlp/commit/a08762e6c079a8f179d268dbced8e0fa1fe8b5c2) by [bashonly](https://github.com/bashonly)
+- [test with my forked manylinux-shared images](https://github.com/yt-dlp/yt-dlp/commit/8ed7f0c6103bcdf3e2ddca57eb3b868043fa7642) by [bashonly](https://github.com/bashonly)
+- [update lockfile versions](https://github.com/yt-dlp/yt-dlp/commit/b661d1a88e6e31ca2be34d424a4a35c5c360cbf7) by [pukkandan](https://github.com/pukkandan)
+- [verbose](https://github.com/yt-dlp/yt-dlp/commit/753f71f685d0123c2313f81b7569780430ea430f) by [bashonly](https://github.com/bashonly)
+- **release.yml**: [remove unnecessary `toJSON`s](https://github.com/yt-dlp/yt-dlp/commit/ad1b332204c6b64ccfce91a8b54b6798f370eec3) by [bashonly](https://github.com/bashonly)
+- **update**: [minimize `_make_label` diff](https://github.com/yt-dlp/yt-dlp/commit/13fe14a93d974dd9f438f1f0915ca9141a97eafc) by [bashonly](https://github.com/bashonly)
+
+#### Misc. changes
+- **build**
+    - [remove curl-cffi test in verify script](https://github.com/yt-dlp/yt-dlp/commit/be1a54e9fe083496ef21c23d0b4c635d1b8b7531) by [bashonly](https://github.com/bashonly)
+    - [update nightly/master release triggers](https://github.com/yt-dlp/yt-dlp/commit/ca42cd1837e24ac70fb4a5c5bf6523462eb0ed04) by [bashonly](https://github.com/bashonly)
+- **ci**: [Test and lint workflows](https://github.com/yt-dlp/yt-dlp/commit/54f6df576adb7cb7843200924cbc4ed6e08359c8) by [bashonly](https://github.com/bashonly)
+
 ### 2025.09.02.1
 
 #### Core changes

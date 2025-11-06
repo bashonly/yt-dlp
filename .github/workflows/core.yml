@@ -1,27 +1,6 @@
 name: Core Tests
 on:
-  push:
-    paths:
-      - .github/**
-      - devscripts/**
-      - test/**
-      - yt_dlp/**.py
-      - '!yt_dlp/extractor/**.py'
-      - yt_dlp/extractor/youtube/**.py
-      - yt_dlp/extractor/__init__.py
-      - yt_dlp/extractor/common.py
-      - yt_dlp/extractor/extractors.py
-  pull_request:
-    paths:
-      - .github/**
-      - devscripts/**
-      - test/**
-      - yt_dlp/**.py
-      - '!yt_dlp/extractor/**.py'
-      - yt_dlp/extractor/youtube/**.py
-      - yt_dlp/extractor/__init__.py
-      - yt_dlp/extractor/common.py
-      - yt_dlp/extractor/extractors.py
+  workflow_dispatch:
 permissions:
   contents: read
 

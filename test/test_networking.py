@@ -314,11 +314,11 @@ class TestRequestHandlerBase:
 class TestHTTPRequestHandler(TestRequestHandlerBase):
 
     def test_data_uri(self, handler):
-        for data in ['{"a":"b"}', '{"c":"d"}', '{"e":"f"}']:
+        for data in [b'{"a":"b"}', b'{"c":"d"}', b'{"e":"f"}']:
             with handler() as rh:
                 uri = encode_data_uri(data, 'application/json')
                 res = validate_and_send(rh, Request(uri))
-                assert res.read().decode() == data
+                assert res.read() == data
 
     def test_verify_cert(self, handler):
         with handler() as rh:

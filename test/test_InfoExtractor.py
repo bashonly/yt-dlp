@@ -60,7 +60,7 @@ class DummyIE(InfoExtractor):
 
 class TestInfoExtractor(unittest.TestCase):
     def setUp(self):
-        self.ie = DummyIE(FakeYDL())
+        self.ie = DummyIE(FakeYDL({'compat_opts': {'prefer-legacy-http-handler'}}))
 
     def test_ie_key(self):
         self.assertEqual(get_info_extractor(YoutubeIE.ie_key()), YoutubeIE)

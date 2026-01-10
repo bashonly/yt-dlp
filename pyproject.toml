@@ -104,6 +104,9 @@ yt-dlp = "yt_dlp:main"
 [project.entry-points.pyinstaller40]
 hook-dirs = "yt_dlp.__pyinstaller:get_hook_dirs"
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.hatch.build.targets.sdist]
 include = [
     "/yt_dlp",

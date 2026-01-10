@@ -52,32 +52,32 @@ on:
         required: true
         default: stable
         type: string
+      deno:
+        description: do the deno
+        default: true
+        type: boolean
       unix:
         description: yt-dlp, yt-dlp.tar.gz
-        default: true
+        default: false
         type: boolean
       linux:
         description: yt-dlp_linux, yt-dlp_linux.zip, yt-dlp_linux_aarch64, yt-dlp_linux_aarch64.zip
-        default: true
+        default: false
         type: boolean
       linux_armv7l:
         description: yt-dlp_linux_armv7l.zip
-        default: true
+        default: false
         type: boolean
       musllinux:
         description: yt-dlp_musllinux, yt-dlp_musllinux.zip, yt-dlp_musllinux_aarch64, yt-dlp_musllinux_aarch64.zip
-        default: true
+        default: false
         type: boolean
       macos:
         description: yt-dlp_macos, yt-dlp_macos.zip
-        default: true
+        default: false
         type: boolean
       windows:
         description: yt-dlp.exe, yt-dlp_win.zip, yt-dlp_x86.exe, yt-dlp_win_x86.zip, yt-dlp_arm64.exe, yt-dlp_win_arm64.zip
-        default: true
-        type: boolean
-      deno:
-        description: do the deno
         default: false
         type: boolean
 

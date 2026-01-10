@@ -1,11 +1,12 @@
 #!/bin/bash
 set -exuo pipefail
 
+python -m ensurepip --upgrade --default-pip
+
 python -m venv /yt-dlp-build-venv
 # shellcheck disable=SC1091
 source /yt-dlp-build-venv/bin/activate
 
-python -m ensurepip --upgrade --default-pip
 python -m pip install -U pip
 
 python -m pip install -U ".[default,deno]"

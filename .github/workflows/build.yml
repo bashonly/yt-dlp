@@ -248,10 +248,20 @@ jobs:
 
   deno:
     name: deno
+    needs: [process]
     if: inputs.deno
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    env:
+      CHANNEL: ${{ inputs.channel }}
+      ORIGIN: ${{ needs.process.outputs.origin }}
+      VERSION: ${{ needs.process.outputs.version }}
+      EXE_NAME: yt-dlp_linux
+      PYTHON_VERSION: '3.13'
+      UPDATE_TO: yt-dlp/yt-dlp@2023.03.04
+      SKIP_ONEDIR_BUILD: '1'
+      SKIP_ONEFILE_BUILD: '1'
 
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1

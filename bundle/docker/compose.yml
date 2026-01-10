@@ -7,7 +7,7 @@ services:
       platforms:
         - "linux/amd64"
       args:
-        DENOIMAGE: quay.io/pypa/manylinux_2_28:latest
+        DENOIMAGE: quay.io/pypa/manylinux_2_28_x86_64:latest
     volumes:
       - ../..:/yt-dlp
 

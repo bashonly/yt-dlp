@@ -16,7 +16,8 @@ source /yt-dlp-build-venv/bin/activate
 venvpy -m ensurepip --upgrade --default-pip
 venvpy -m pip install -U pip
 
-venvpy -m pip install -U ".[default,deno]"
+venvpy -m pip install -U ".[default]"
+venvpy -m pip install "deno @ https://github.com/bashonly/deno_pypi/releases/download/v2.6.4/deno-2.6.4.tar.gz"
 
 yt-dlp -v || true
 

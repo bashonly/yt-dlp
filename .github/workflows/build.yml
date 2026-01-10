@@ -281,6 +281,29 @@ jobs:
     if: inputs.deno
     permissions:
       contents: read
+    runs-on: windows-2025
+
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548  # v6.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Do the Deno
+        run: |
+          python -m pip install "deno @ https://github.com/bashonly/deno_pypi/releases/download/v2.6.4/deno-2.6.4.tar.gz"
+          python -c 'import deno; print(deno.find_deno_bin())'
+          python -m deno --version
+
+  deno_three:
+    name: deno_three
+    needs: [process]
+    if: inputs.deno
+    permissions:
+      contents: read
     runs-on: windows-11-arm
 
     steps:
@@ -294,7 +317,7 @@ jobs:
 
       - name: Do the Deno
         run: |
-          python -m pip install -U deno
+          python -m pip install "deno @ https://github.com/bashonly/deno_pypi/releases/download/v2.6.4/deno-2.6.4.tar.gz"
           python -c 'import deno; print(deno.find_deno_bin())'
           python -m deno --version
 

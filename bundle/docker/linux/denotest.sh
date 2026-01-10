@@ -1,23 +1,30 @@
 #!/bin/bash
 set -exuo pipefail
 
-python -m ensurepip --upgrade --default-pip
+function runpy {
+    /opt/python/cp313-cp313/bin/python "$@"
+}
 
-python -m venv /yt-dlp-build-venv
+function venvpy {
+    python3.13 "$@"
+}
+
+runpy -m venv /yt-dlp-build-venv
 # shellcheck disable=SC1091
-source /yt-dlp-build-venv/bin/activate
+runpy /yt-dlp-build-venv/bin/activate
 
-python -m pip install -U pip
+venvpy -m ensurepip --upgrade --default-pip
+venvpy -m pip install -U pip
 
-python -m pip install -U ".[default,deno]"
+venvpy -m pip install -U ".[default,deno]"
 
 yt-dlp -v || true
 
 deno --version || true
 
-python -c "import deno; print(deno.find_deno_bin())"
+venvpy -c "import deno; print(deno.find_deno_bin())"
 
-deno_exe=$(python -c "import deno; print(deno.find_deno_bin())")
+deno_exe=$(venvpy -c "import deno; print(deno.find_deno_bin())")
 
 chmod +x "${deno_exe}"
 

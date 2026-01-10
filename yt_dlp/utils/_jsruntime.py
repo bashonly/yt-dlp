@@ -82,7 +82,12 @@ class DenoJsRuntime(JsRuntime):
     MIN_SUPPORTED_VERSION = (2, 0, 0)
 
     def _info(self):
-        path = _determine_runtime_path(self._path, 'deno')
+        try:
+            import deno
+            path = deno.find_deno_bin()
+        except (ImportError, AttributeError):
+            path = _determine_runtime_path(self._path, 'deno')
+
         out = _get_exe_version_output(path, ['--version'])
         if not out:
             return None

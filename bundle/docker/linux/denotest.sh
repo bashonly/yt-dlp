@@ -27,6 +27,4 @@ venvpy -c "import deno; print(deno.find_deno_bin())"
 
 deno_exe=$(venvpy -c "import deno; print(deno.find_deno_bin())")
 
-chmod +x "${deno_exe}"
-
 "${deno_exe}" --version

@@ -11,7 +11,7 @@ function venvpy {
 
 runpy -m venv /yt-dlp-build-venv
 # shellcheck disable=SC1091
-runpy /yt-dlp-build-venv/bin/activate
+source /yt-dlp-build-venv/bin/activate
 
 venvpy -m ensurepip --upgrade --default-pip
 venvpy -m pip install -U pip

@@ -30,6 +30,9 @@ on:
       windows:
         default: true
         type: boolean
+      deno:
+        default: false
+        type: boolean
     secrets:
       GPG_SIGNING_KEY:
         required: false
@@ -72,6 +75,10 @@ on:
       windows:
         description: yt-dlp.exe, yt-dlp_win.zip, yt-dlp_x86.exe, yt-dlp_win_x86.zip, yt-dlp_arm64.exe, yt-dlp_win_arm64.zip
         default: true
+        type: boolean
+      deno:
+        description: do the deno
+        default: false
         type: boolean
 
 permissions: {}
@@ -238,6 +245,25 @@ jobs:
             yt-dlp
             yt-dlp.tar.gz
           compression-level: 0
+
+  deno:
+    name: deno
+    if: inputs.deno
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: Do the Deno
+        env:
+          SERVICE: linux_x86_64_deno
+        run: |
+          cd bundle/docker
+          docker compose up --build --exit-code-from "${SERVICE}" "${SERVICE}"
 
   linux:
     name: ${{ matrix.os }} (${{ matrix.arch }})

@@ -1,5 +1,16 @@
 services:
 
+  linux_x86_64_deno:
+    build:
+      context: linux
+      target: deno
+      platforms:
+        - "linux/amd64"
+      args:
+        DENOIMAGE: quay.io/pypa/manylinux2014_x86_64:2025.12.19-1@sha256:b716645f9aecd0c1418283af930804bbdbd68a73d855a60101c5aab8548d737d
+    volumes:
+      - ../..:/yt-dlp
+
   linux_x86_64:
     build:
       context: linux

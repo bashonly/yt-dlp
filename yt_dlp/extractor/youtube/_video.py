@@ -3299,7 +3299,8 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
     def _reload_sabr_config(self, video_id, client_name, reload_playback_token):
         # xxx: may also update client info?
         url = 'https://www.youtube.com/watch?v=' + video_id
-        _, _, _, _, prs, player_url = self._initial_extract(url, {}, url, 'web', video_id, reload_playback_token)
+        _, _, _, _, prs, player_url = self._initial_extract(
+            url, {}, url, self._webpage_client, video_id, reload_playback_token)
         video_details = traverse_obj(prs, (..., 'videoDetails'), expected_type=dict)
         microformats = traverse_obj(
             prs, (..., 'microformat', 'playerMicroformatRenderer'),

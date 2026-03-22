@@ -754,7 +754,7 @@ class TestLiveStreamStall:
             live_end_wait_sec=live_end_wait_sec,
         )
         iter_parts = sabr_stream.iter_parts()
-        format_init_part = next(iter_parts)
+        format_init_part = next((p for p in iter_parts if isinstance(p, FormatInitializedSabrPart)), None)
         assert isinstance(format_init_part, FormatInitializedSabrPart)
         # Get all the media init parts
         media_init_parts = [part for part in iter_parts if isinstance(part, MediaSegmentInitSabrPart)]

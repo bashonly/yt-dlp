@@ -24,7 +24,7 @@ from yt_dlp.extractor.youtube._streaming.sabr.models import ConsumedRange, Audio
 from yt_dlp.extractor.youtube._streaming.sabr.exceptions import SabrStreamError
 from yt_dlp.extractor.youtube._proto.innertube import ClientInfo, ClientName
 from yt_dlp.extractor.youtube._proto.videostreaming import FormatId
-from ...extractor.youtube._streaming.sabr.processor import JS_MAX_SAFE_INTEGER
+from yt_dlp.extractor.youtube._streaming.sabr.processor import JS_MAX_SAFE_INTEGER
 
 
 class SabrFD(FileDownloader):

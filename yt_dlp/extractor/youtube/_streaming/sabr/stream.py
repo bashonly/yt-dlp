@@ -48,6 +48,14 @@ from .utils import (
 )
 from ..ump import UMPDecoder, UMPPart, UMPPartId, read_varint
 
+DEFAULT_HTTP_RETRIES = 10
+DEFAULT_POT_RETRIES = 5
+DEFAULT_HOST_FALLBACK_THRESHOLD = 8
+DEFAULT_MAX_EMPTY_REQUESTS = 3
+DEFAULT_MIN_LIVE_END_WAIT_SEC = 10
+DEFAULT_LIVE_END_SEGMENT_TOLERANCE = 3
+DEFAULT_EXPIRY_THRESHOLD_SEC = 60
+
 
 @dataclasses.dataclass
 class StreamStallTracker:
@@ -170,13 +178,13 @@ class SabrStream:
             video_id=video_id,
         )
         self.url = server_abr_streaming_url
-        self.http_retries = http_retries or 10
-        self.pot_retries = pot_retries or 5
-        self.host_fallback_threshold = host_fallback_threshold or 8
-        self.max_empty_requests = max_empty_requests or 3
-        self.live_end_wait_sec = live_end_wait_sec or max(10, self.max_empty_requests * self.processor.live_segment_target_duration_sec)
-        self.live_end_segment_tolerance = live_end_segment_tolerance or 3
-        self.expiry_threshold_sec = expiry_threshold_sec or 60  # 60 seconds
+        self.http_retries = http_retries or DEFAULT_HTTP_RETRIES
+        self.pot_retries = pot_retries or DEFAULT_POT_RETRIES
+        self.host_fallback_threshold = host_fallback_threshold or DEFAULT_HOST_FALLBACK_THRESHOLD
+        self.max_empty_requests = max_empty_requests or DEFAULT_MAX_EMPTY_REQUESTS
+        self.live_end_wait_sec = live_end_wait_sec or max(DEFAULT_MIN_LIVE_END_WAIT_SEC, self.max_empty_requests * self.processor.live_segment_target_duration_sec)
+        self.live_end_segment_tolerance = live_end_segment_tolerance or DEFAULT_LIVE_END_SEGMENT_TOLERANCE
+        self.expiry_threshold_sec = expiry_threshold_sec or DEFAULT_EXPIRY_THRESHOLD_SEC
         if self.expiry_threshold_sec <= 0:
             raise ValueError('expiry_threshold_sec must be greater than 0')
         if self.max_empty_requests <= 0:

@@ -98,6 +98,8 @@ class LiveState:
 
 JS_MAX_SAFE_INTEGER = (2**53) - 1
 MIN_SEQUENCE_NUMBER = 1
+DEFAULT_LIVE_TARGET_DURATION_SEC = 5
+DEFAULT_LIVE_TARGET_DURATION_TOLERANCE_MS = 100
 
 
 class SabrProcessor:
@@ -128,8 +130,8 @@ class SabrProcessor:
         self.video_playback_ustreamer_config = video_playback_ustreamer_config
         self.po_token = po_token
         self.client_info = client_info
-        self.live_segment_target_duration_sec = live_segment_target_duration_sec or 5
-        self.live_segment_target_duration_tolerance_ms = live_segment_target_duration_tolerance_ms or 100
+        self.live_segment_target_duration_sec = live_segment_target_duration_sec or DEFAULT_LIVE_TARGET_DURATION_SEC
+        self.live_segment_target_duration_tolerance_ms = live_segment_target_duration_tolerance_ms or DEFAULT_LIVE_TARGET_DURATION_TOLERANCE_MS
         if self.live_segment_target_duration_tolerance_ms >= (self.live_segment_target_duration_sec * 1000) / 2:
             raise ValueError(
                 'live_segment_target_duration_tolerance_ms must be less than '
@@ -488,7 +490,8 @@ class SabrProcessor:
             previous_segment = segment.initialized_format.previous_segment
             self.logger.trace(
                 f'Previous segment {previous_segment.sequence_number} for format {segment.format_id} '
-                f'estimated duration difference from this segment ({segment.sequence_number}): {segment.start_ms - (previous_segment.start_ms + previous_segment.duration_ms)}ms')
+                f'estimated duration difference from this segment ({segment.sequence_number}): '
+                f'{segment.start_ms - (previous_segment.start_ms + previous_segment.duration_ms)}ms')
 
         segment.initialized_format.previous_segment = segment
 

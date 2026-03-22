@@ -48,13 +48,13 @@ from .utils import find_consumed_range, find_consumed_range_chain, ticks_to_ms
 
 
 class ProcessMediaEndResult:
-    def __init__(self, sabr_part: MediaSegmentEndSabrPart = None, is_new_segment: bool = False):
+    def __init__(self, sabr_part: MediaSegmentEndSabrPart | None = None, is_new_segment: bool = False):
         self.is_new_segment = is_new_segment  # TODO: better name
         self.sabr_part = sabr_part
 
 
 class ProcessMediaResult:
-    def __init__(self, sabr_part: MediaSegmentDataSabrPart = None):
+    def __init__(self, sabr_part: MediaSegmentDataSabrPart | None = None):
         self.sabr_part = sabr_part
 
 
@@ -100,6 +100,10 @@ JS_MAX_SAFE_INTEGER = (2**53) - 1
 MIN_SEQUENCE_NUMBER = 1
 DEFAULT_LIVE_TARGET_DURATION_SEC = 5
 DEFAULT_LIVE_TARGET_DURATION_TOLERANCE_MS = 100
+
+BITFIELD_AUDIO = 1
+BITFIELD_AUDIO_VIDEO = 0
+BITFIELD_AUDIO_VIDEO_CAPTIONS = 7
 
 
 class SabrProcessor:
@@ -198,15 +202,15 @@ class SabrProcessor:
         if not self._caption_format_selector:
             self._caption_format_selector = CaptionSelector(display_name='caption_ignore', discard_media=True)
 
-        enabled_track_types_bitfield = 0  # Audio+Video
+        enabled_track_types_bitfield = BITFIELD_AUDIO_VIDEO  # Audio+Video
 
         if self._video_format_selector.discard_media:
-            enabled_track_types_bitfield = 1  # Audio only
+            enabled_track_types_bitfield = BITFIELD_AUDIO  # Audio only
 
         if not self._caption_format_selector.discard_media:
             # SABR does not support caption-only or audio+captions only - can only get audio+video with captions
             # If audio or video is not selected, the tracks will be initialized but marked as buffered.
-            enabled_track_types_bitfield = 7
+            enabled_track_types_bitfield = BITFIELD_AUDIO_VIDEO_CAPTIONS
 
         self.preferred_audio_format_ids = self._audio_format_selector.format_ids
         self.preferred_video_format_ids = self._video_format_selector.format_ids
@@ -270,7 +274,7 @@ class SabrProcessor:
         # + 1 from the end of the previous segment consumed range chain
         consumed_ranges = find_consumed_range_chain(initialized_format.previous_segment.sequence_number, initialized_format.consumed_ranges)
         if not consumed_ranges:
-            # xxx: if we want to allow clearing consumed ranges while keeping segment order,
+            # NOTE: for future, if we want to allow clearing consumed ranges while keeping segment order,
             # we can return previous_segment.sequence_number + 1 here
             raise SabrStreamError('Previous segment not part of any consumed range')
 

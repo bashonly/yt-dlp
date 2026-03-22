@@ -111,7 +111,7 @@ class SabrStream:
     @param host_fallback_threshold: The number of consecutive retries before falling back to the next GVS server.
     @param max_empty_requests: The maximum number of consecutive requests with no new segments before giving up.
     @param live_end_wait_sec: The number of seconds to wait after the last received segment before considering the live stream ended.
-    @param live_end_segment_tolerance: The number of segments before the live head segment at which the livestream is allowed to end. Defaults to 10.
+    @param live_end_segment_tolerance: The number of segments before the live head segment at which the livestream is allowed to end. Defaults to 3.
     @param post_live: Whether the live stream is in post-live mode. Used to determine how to handle the end of the stream.
     @param video_id: The video ID of the YouTube video. Used for validating received data is for the correct video.
     @param retry_sleep_func: A function to calculate sleep time between retries. Takes the retry count as an argument.
@@ -130,6 +130,7 @@ class SabrStream:
         UMPPartId.REQUEST_PIPELINING,
         UMPPartId.SELECTABLE_FORMATS,
         UMPPartId.PREWARM_CONNECTION,
+        UMPPartId.SNACKBAR_MESSAGE,
     )
 
     def __init__(
@@ -351,7 +352,7 @@ class SabrStream:
 
     def _process_sps_retry(self):
         # The PO Token may be updated during the request.
-        # For logging purposes, the error is determined by the state at the time of the request.
+        # For logging purposes, the error is determined by the state at the time of the last request.
         error = PoTokenError(missing=not self._last_vpabr.streamer_context.po_token)
 
         if self.processor.stream_protection_status == StreamProtectionStatus.Status.ATTESTATION_REQUIRED:

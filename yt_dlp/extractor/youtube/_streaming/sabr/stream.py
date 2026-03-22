@@ -225,7 +225,7 @@ class SabrStream:
         if self.processor.is_live and hasattr(self, '_url'):
             self._process_broadcast_id(broadcast_id_from_url(url))
         self._url = url
-        if str_or_none(parse_qs(url).get('source', [None])[0]) == 'yt_live_broadcast':
+        if str_or_none(parse_qs(url).get('source', [None])[0]) in ('yt_live_broadcast', 'yt_premiere_broadcast'):
             self.processor.is_live = True
 
     @property

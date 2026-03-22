@@ -34,6 +34,7 @@ from yt_dlp.utils import parse_qs
 
 LIVE_BROADCAST_ID = '1'
 VALID_LIVE_URL = f'https://live.googlevideo.com/sabr_live?id={LIVE_BROADCAST_ID}&source=yt_live_broadcast&sabr=1'
+VALID_LIVE_PREMIERE_URL = f'https://live.googlevideo.com/sabr_live?id={LIVE_BROADCAST_ID}&source=yt_premiere_broadcast&sabr=1'
 VALID_SABR_URL = 'https://test.googlevideo.com/sabr?sabr=1'
 RAW_VIDEO_PLAYBACK_USTREAMER_CONFIG = b'test-config'
 VIDEO_PLAYBACK_USTREAMER_CONFIG = base64.urlsafe_b64encode(RAW_VIDEO_PLAYBACK_USTREAMER_CONFIG).decode('utf-8')

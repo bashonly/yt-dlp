@@ -16,6 +16,7 @@ from test.test_sabr.test_stream.helpers import (
     DEFAULT_CAPTION_FORMAT,
     DEFAULT_AUDIO_FORMAT,
     DEFAULT_VIDEO_FORMAT,
+    VALID_LIVE_PREMIERE_URL,
 )
 from yt_dlp.extractor.youtube._proto.videostreaming.reload_player_response import ReloadPlaybackParams
 from yt_dlp.extractor.youtube._streaming.sabr.exceptions import (
@@ -481,10 +482,11 @@ class TestLiveStreamStall:
             sabr_response_processor=profile,
             client_info=client_info,
             logger=logger,
-            url='https://live.googlevideo.com/sabr_live?id=test.0&source=yt_live_broadcast&sabr=1',
+            url='https://live.googlevideo.com/sabr_live?id=test.0&source=yt_premiere_broadcast&sabr=1',
             live_segment_target_duration_sec=segment_target_duration_ms // 1000,
             heartbeat_callback=heartbeat_callback,
         )
+        assert sabr_stream.processor.is_live is True
         audio_selector, video_selector = selectors
         assert sabr_stream.live_end_wait_sec == 10.0  # Default calculated
         parts = list(sabr_stream.iter_parts())
@@ -1854,6 +1856,52 @@ class TestLive:
             live_segment_target_duration_sec=segment_target_duration_ms // 1000,
             post_live=post_live,
         )
+        list(sabr_stream.iter_parts())
+
+        assert len(rh.request_history) > 1
+        first_request_vpabr = rh.request_history[0].vpabr
+        assert first_request_vpabr.client_abr_state.player_time_ms == 0
+        second_request_vpabr = rh.request_history[1].vpabr
+        assert second_request_vpabr.client_abr_state.player_time_ms == seek_ms
+        logger.debug.assert_any_call(f'Seeking to {seek_ms}ms')
+
+    @mock_time
+    @pytest.mark.parametrize('post_live', [False, True], ids=['live', 'post_live'])
+    def test_sabr_seek_premiere(self, logger, client_info, post_live):
+        # Should follow SABR_SEEK for live/post_live premiere streams (which have a different `source`)
+        total_segments = 10
+        segment_target_duration_ms = 2000
+        dvr_segments = 9
+        seek_ms = segment_target_duration_ms * 4
+
+        def seeking_format_func(parts, vpabr, url, request_number):
+            if request_number == 1:
+                sabr_seek = protobug.dumps(SabrSeek(
+                    seek_time_ticks=seek_ms,
+                    timescale=1000,
+                ))
+                parts.append(UMPPart(
+                    part_id=UMPPartId.SABR_SEEK,
+                    size=len(sabr_seek),
+                    data=io.BytesIO(sabr_seek),
+                ))
+            return parts
+        profile = LiveAVProfile({
+            'total_segments': total_segments,
+            'segment_target_duration_ms': segment_target_duration_ms,
+            'dvr_segments': dvr_segments,
+            'custom_parts_function': seeking_format_func,
+        })
+        sabr_stream, rh, _ = setup_sabr_stream_av(
+            sabr_response_processor=profile,
+            client_info=client_info,
+            logger=logger,
+            url=VALID_LIVE_PREMIERE_URL,
+            live_segment_target_duration_sec=segment_target_duration_ms // 1000,
+            post_live=post_live,
+        )
+        assert sabr_stream.processor.is_live is True
+        assert 'yt_premiere_broadcast' in sabr_stream.url
         list(sabr_stream.iter_parts())
 
         assert len(rh.request_history) > 1

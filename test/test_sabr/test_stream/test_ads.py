@@ -94,7 +94,7 @@ def generate_cuepoint_info(identifier, event, track_type):
     # Currently we ignore any of the duration info, but could be something to consider at a later date
     return CuepointInfo(
         cuepoint=Cuepoint(
-            type=CuepointType.CUEPOINT_TYPE_AD,
+            type=CuepointType.AD,
             event=event,
             identifier=identifier),
         track_type=track_type,
@@ -109,25 +109,25 @@ class TestLiveCuepointAds:
         identifier = 'test_identifier'
         cuepoints = {
             1: [
-                generate_cuepoint_info(identifier, CuepointEvent.CUEPOINT_EVENT_PREDICT_START, track_type=TrackType.TRACK_TYPE_AUDIO),
-                generate_cuepoint_info(identifier, CuepointEvent.CUEPOINT_EVENT_PREDICT_START, track_type=TrackType.TRACK_TYPE_VIDEO),
+                generate_cuepoint_info(identifier, CuepointEvent.PREDICT_START, track_type=TrackType.AUDIO),
+                generate_cuepoint_info(identifier, CuepointEvent.PREDICT_START, track_type=TrackType.VIDEO),
             ],
             2: [
-                generate_cuepoint_info(identifier, CuepointEvent.CUEPOINT_EVENT_START, track_type=TrackType.TRACK_TYPE_AUDIO),
-                generate_cuepoint_info(identifier, CuepointEvent.CUEPOINT_EVENT_START, track_type=TrackType.TRACK_TYPE_VIDEO),
+                generate_cuepoint_info(identifier, CuepointEvent.START, track_type=TrackType.AUDIO),
+                generate_cuepoint_info(identifier, CuepointEvent.START, track_type=TrackType.VIDEO),
             ],
             # should continue to send if cuepoint_info not provided
             4: [
-                generate_cuepoint_info(identifier, CuepointEvent.CUEPOINT_EVENT_CONTINUE, track_type=TrackType.TRACK_TYPE_AUDIO),
-                generate_cuepoint_info(identifier, CuepointEvent.CUEPOINT_EVENT_CONTINUE, track_type=TrackType.TRACK_TYPE_VIDEO),
+                generate_cuepoint_info(identifier, CuepointEvent.CONTINUE, track_type=TrackType.AUDIO),
+                generate_cuepoint_info(identifier, CuepointEvent.CONTINUE, track_type=TrackType.VIDEO),
             ],
             5: [
-                generate_cuepoint_info(identifier, CuepointEvent.CUEPOINT_EVENT_INSERTION, track_type=TrackType.TRACK_TYPE_AUDIO),
-                generate_cuepoint_info(identifier, CuepointEvent.CUEPOINT_EVENT_INSERTION, track_type=TrackType.TRACK_TYPE_VIDEO),
+                generate_cuepoint_info(identifier, CuepointEvent.INSERTION, track_type=TrackType.AUDIO),
+                generate_cuepoint_info(identifier, CuepointEvent.INSERTION, track_type=TrackType.VIDEO),
             ],
             6: [
-                generate_cuepoint_info(identifier, CuepointEvent.CUEPOINT_EVENT_STOP, track_type=TrackType.TRACK_TYPE_AUDIO),
-                generate_cuepoint_info(identifier, CuepointEvent.CUEPOINT_EVENT_STOP, track_type=TrackType.TRACK_TYPE_VIDEO),
+                generate_cuepoint_info(identifier, CuepointEvent.STOP, track_type=TrackType.AUDIO),
+                generate_cuepoint_info(identifier, CuepointEvent.STOP, track_type=TrackType.VIDEO),
             ],
         }
 
@@ -204,7 +204,7 @@ class TestLiveCuepointAds:
 
             if request_number == 1:
                 payload = protobug.dumps(CuepointList(
-                    cuepoint_info=[generate_cuepoint_info(identifier, CuepointEvent.CUEPOINT_EVENT_START, track_type=TrackType.TRACK_TYPE_AUDIO)]))
+                    cuepoint_info=[generate_cuepoint_info(identifier, CuepointEvent.START, track_type=TrackType.AUDIO)]))
                 parts.append(
                     UMPPart(
                         part_id=UMPPartId.CUEPOINT_LIST,

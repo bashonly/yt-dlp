@@ -726,7 +726,7 @@ class SabrProcessor:
             return
 
         if (
-            sabr_ctx_update.write_policy == SabrContextUpdate.SabrContextWritePolicy.SABR_CONTEXT_WRITE_POLICY_KEEP_EXISTING
+            sabr_ctx_update.write_policy == SabrContextUpdate.SabrContextWritePolicy.KEEP_EXISTING
             and sabr_ctx_update.type in self.sabr_context_updates
         ):
             self.logger.debug(
@@ -772,7 +772,7 @@ class SabrProcessor:
                 self.logger.warning(f'Received Cuepoint without identifier, ignoring: {cuepoint}')
                 continue
 
-            if cuepoint.event == CuepointEvent.CUEPOINT_EVENT_STOP:
+            if cuepoint.event == CuepointEvent.STOP:
                 if cuepoint_identifier not in self.ad_cuepoints:
                     self.logger.trace(f'Received ad cuepoint STOP event for unknown cuepoint identifier, ignoring: {cuepoint}')
                     continue

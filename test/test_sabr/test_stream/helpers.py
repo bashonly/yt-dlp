@@ -432,7 +432,7 @@ class AdWaitAVProfile(BasicAudioVideoProfile):
 
     CONTEXT_UPDATE_DATA = b'context-update-data'
     CONTEXT_UPDATE_TYPE = 5
-    CONTEXT_UPDATE_SCOPE = SabrContextUpdate.SabrContextScope.SABR_CONTEXT_SCOPE_CONTENT_ADS
+    CONTEXT_UPDATE_SCOPE = SabrContextUpdate.SabrContextScope.CONTENT_ADS
     AD_WAIT_TIME = 10
 
     # Returns a SabrContextUpdate and required the context update to be passed in the vpabr before continuing
@@ -454,7 +454,7 @@ class AdWaitAVProfile(BasicAudioVideoProfile):
             type=self.CONTEXT_UPDATE_TYPE,
             scope=self.CONTEXT_UPDATE_SCOPE,
             value=self.CONTEXT_UPDATE_DATA,
-            write_policy=SabrContextUpdate.SabrContextWritePolicy.SABR_CONTEXT_WRITE_POLICY_OVERWRITE,
+            write_policy=SabrContextUpdate.SabrContextWritePolicy.OVERWRITE,
             send_by_default=True,
         ))
         parts.append(UMPPart(
@@ -479,7 +479,7 @@ class SabrContextSendingPolicyAVProfile(BasicAudioVideoProfile):
     # Returns a SabrContextUpdate part on the first request, then a followup policy to disable it
     CONTEXT_UPDATE_DATA = b'context-update-data'
     CONTEXT_UPDATE_TYPE = 1
-    CONTEXT_UPDATE_SCOPE = SabrContextUpdate.SabrContextScope.SABR_CONTEXT_SCOPE_PLAYBACK
+    CONTEXT_UPDATE_SCOPE = SabrContextUpdate.SabrContextScope.PLAYBACK
 
     REQUEST_ADD_CONTEXT_UPDATE = 1
     REQUEST_DISABLE_CONTEXT_UPDATE = 3
@@ -498,7 +498,7 @@ class SabrContextSendingPolicyAVProfile(BasicAudioVideoProfile):
             type=self.CONTEXT_UPDATE_TYPE,
             scope=self.CONTEXT_UPDATE_SCOPE,
             value=self.CONTEXT_UPDATE_DATA,
-            write_policy=SabrContextUpdate.SabrContextWritePolicy.SABR_CONTEXT_WRITE_POLICY_OVERWRITE,
+            write_policy=SabrContextUpdate.SabrContextWritePolicy.OVERWRITE,
             send_by_default=True,
         ))
         return UMPPart(

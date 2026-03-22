@@ -134,14 +134,14 @@ def make_media_header(selector=None, video_id=None, sequence_no=None, header_id=
 
 def make_cuepoint_info(
     identifier: str = 'test_identifier',
-    event: CuepointEvent = CuepointEvent.CUEPOINT_EVENT_START,
-    track_type: TrackType = TrackType.TRACK_TYPE_AUDIO,
+    event: CuepointEvent = CuepointEvent.START,
+    track_type: TrackType = TrackType.AUDIO,
     *,
     cuepoint=None,
 ):
     return CuepointInfo(
         cuepoint=cuepoint if cuepoint is not None else Cuepoint(
-            type=CuepointType.CUEPOINT_TYPE_AD,
+            type=CuepointType.AD,
             event=event,
             identifier=identifier,
         ),
@@ -1375,10 +1375,10 @@ class TestSabrContextUpdate:
         processor = SabrProcessor(**base_args)
         valid_update = SabrContextUpdate(
             type=5,
-            scope=SabrContextUpdate.SabrContextScope.SABR_CONTEXT_SCOPE_CONTENT_ADS,
+            scope=SabrContextUpdate.SabrContextScope.CONTENT_ADS,
             value=b'{"key": "value"}',
             send_by_default=True,
-            write_policy=SabrContextUpdate.SabrContextWritePolicy.SABR_CONTEXT_WRITE_POLICY_OVERWRITE,
+            write_policy=SabrContextUpdate.SabrContextWritePolicy.OVERWRITE,
         )
         processor.process_sabr_context_update(valid_update)
 
@@ -1392,10 +1392,10 @@ class TestSabrContextUpdate:
         processor = SabrProcessor(**base_args)
         valid_update = SabrContextUpdate(
             type=5,
-            scope=SabrContextUpdate.SabrContextScope.SABR_CONTEXT_SCOPE_CONTENT_ADS,
+            scope=SabrContextUpdate.SabrContextScope.CONTENT_ADS,
             value=b'{"key": "value"}',
             send_by_default=False,
-            write_policy=SabrContextUpdate.SabrContextWritePolicy.SABR_CONTEXT_WRITE_POLICY_OVERWRITE,
+            write_policy=SabrContextUpdate.SabrContextWritePolicy.OVERWRITE,
         )
         processor.process_sabr_context_update(valid_update)
         assert len(processor.sabr_context_updates) == 1
@@ -1406,10 +1406,10 @@ class TestSabrContextUpdate:
         processor = SabrProcessor(**base_args)
         first_ctx_update = SabrContextUpdate(
             type=5,
-            scope=SabrContextUpdate.SabrContextScope.SABR_CONTEXT_SCOPE_CONTENT_ADS,
+            scope=SabrContextUpdate.SabrContextScope.CONTENT_ADS,
             value=b'{"key": "value"}',
             send_by_default=True,
-            write_policy=SabrContextUpdate.SabrContextWritePolicy.SABR_CONTEXT_WRITE_POLICY_OVERWRITE,
+            write_policy=SabrContextUpdate.SabrContextWritePolicy.OVERWRITE,
         )
         processor.process_sabr_context_update(first_ctx_update)
 
@@ -1420,10 +1420,10 @@ class TestSabrContextUpdate:
 
         second_ctx_update = SabrContextUpdate(
             type=5,
-            scope=SabrContextUpdate.SabrContextScope.SABR_CONTEXT_SCOPE_CONTENT_ADS,
+            scope=SabrContextUpdate.SabrContextScope.CONTENT_ADS,
             value=b'{"key": "new_value"}',
             send_by_default=True,
-            write_policy=SabrContextUpdate.SabrContextWritePolicy.SABR_CONTEXT_WRITE_POLICY_OVERWRITE,
+            write_policy=SabrContextUpdate.SabrContextWritePolicy.OVERWRITE,
         )
 
         processor.process_sabr_context_update(second_ctx_update)
@@ -1436,10 +1436,10 @@ class TestSabrContextUpdate:
         processor = SabrProcessor(**base_args)
         first_ctx_update = SabrContextUpdate(
             type=5,
-            scope=SabrContextUpdate.SabrContextScope.SABR_CONTEXT_SCOPE_CONTENT_ADS,
+            scope=SabrContextUpdate.SabrContextScope.CONTENT_ADS,
             value=b'{"key": "value"}',
             send_by_default=True,
-            write_policy=SabrContextUpdate.SabrContextWritePolicy.SABR_CONTEXT_WRITE_POLICY_KEEP_EXISTING,
+            write_policy=SabrContextUpdate.SabrContextWritePolicy.KEEP_EXISTING,
         )
         processor.process_sabr_context_update(first_ctx_update)
 
@@ -1450,10 +1450,10 @@ class TestSabrContextUpdate:
 
         second_ctx_update = SabrContextUpdate(
             type=5,
-            scope=SabrContextUpdate.SabrContextScope.SABR_CONTEXT_SCOPE_CONTENT_ADS,
+            scope=SabrContextUpdate.SabrContextScope.CONTENT_ADS,
             value=b'{"key": "new_value"}',
             send_by_default=True,
-            write_policy=SabrContextUpdate.SabrContextWritePolicy.SABR_CONTEXT_WRITE_POLICY_KEEP_EXISTING,
+            write_policy=SabrContextUpdate.SabrContextWritePolicy.KEEP_EXISTING,
         )
 
         processor.process_sabr_context_update(second_ctx_update)
@@ -1470,26 +1470,26 @@ class TestSabrContextUpdate:
 
         processor.process_sabr_context_update(SabrContextUpdate(
             type=3,
-            scope=SabrContextUpdate.SabrContextScope.SABR_CONTEXT_SCOPE_PLAYBACK,
+            scope=SabrContextUpdate.SabrContextScope.PLAYBACK,
             value=b'{"key": "value"}',
             send_by_default=True,
-            write_policy=SabrContextUpdate.SabrContextWritePolicy.SABR_CONTEXT_WRITE_POLICY_OVERWRITE,
+            write_policy=SabrContextUpdate.SabrContextWritePolicy.OVERWRITE,
         ))
 
         processor.process_sabr_context_update(SabrContextUpdate(
             type=4,
-            scope=SabrContextUpdate.SabrContextScope.SABR_CONTEXT_SCOPE_REQUEST,
+            scope=SabrContextUpdate.SabrContextScope.REQUEST,
             value=b'{"key": "value"}',
             send_by_default=True,
-            write_policy=SabrContextUpdate.SabrContextWritePolicy.SABR_CONTEXT_WRITE_POLICY_KEEP_EXISTING,
+            write_policy=SabrContextUpdate.SabrContextWritePolicy.KEEP_EXISTING,
         ))
 
         processor.process_sabr_context_update(SabrContextUpdate(
             type=5,
-            scope=SabrContextUpdate.SabrContextScope.SABR_CONTEXT_SCOPE_CONTENT_ADS,
+            scope=SabrContextUpdate.SabrContextScope.CONTENT_ADS,
             value=b'{"key": "value"}',
             send_by_default=False,
-            write_policy=SabrContextUpdate.SabrContextWritePolicy.SABR_CONTEXT_WRITE_POLICY_OVERWRITE,
+            write_policy=SabrContextUpdate.SabrContextWritePolicy.OVERWRITE,
         ))
 
         assert len(processor.sabr_context_updates) == 3
@@ -1521,7 +1521,7 @@ class TestCuepointList:
 
     def test_ignores_missing_cuepoint(self, logger, base_args):
         processor = SabrProcessor(**base_args)
-        cuepoint_info = CuepointInfo(track_type=TrackType.TRACK_TYPE_AUDIO)
+        cuepoint_info = CuepointInfo(track_type=TrackType.AUDIO)
 
         processor.process_cuepoint_list(CuepointList(cuepoint_info=[cuepoint_info]))
 
@@ -1530,7 +1530,7 @@ class TestCuepointList:
 
     def test_ignores_missing_identifier(self, logger, base_args):
         processor = SabrProcessor(**base_args)
-        cuepoint = Cuepoint(type=CuepointType.CUEPOINT_TYPE_AD, event=CuepointEvent.CUEPOINT_EVENT_START)
+        cuepoint = Cuepoint(type=CuepointType.AD, event=CuepointEvent.START)
 
         processor.process_cuepoint_list(CuepointList(cuepoint_info=[make_cuepoint_info(cuepoint=cuepoint)]))
 
@@ -1540,8 +1540,8 @@ class TestCuepointList:
     def test_stop_unknown_identifier_ignored(self, logger, base_args):
         processor = SabrProcessor(**base_args)
         cuepoint = Cuepoint(
-            type=CuepointType.CUEPOINT_TYPE_AD,
-            event=CuepointEvent.CUEPOINT_EVENT_STOP,
+            type=CuepointType.AD,
+            event=CuepointEvent.STOP,
             identifier='unknown_identifier',
         )
 
@@ -1558,7 +1558,7 @@ class TestCuepointList:
 
         processor.process_cuepoint_list(CuepointList(cuepoint_info=[make_cuepoint_info(
             identifier='known_identifier',
-            event=CuepointEvent.CUEPOINT_EVENT_STOP,
+            event=CuepointEvent.STOP,
         )]))
 
         assert processor.ad_cuepoints == {}
@@ -1572,13 +1572,13 @@ class TestCuepointList:
         assert set(processor.ad_cuepoints) == {'new_identifier'}
         assert processor.ad_cuepoints['new_identifier'].cuepoint_id == 'new_identifier'
         assert processor.ad_cuepoints['new_identifier'].magic_value == 11
-        logger.trace.assert_called_with('Registered ad cuepoint new_identifier due to CUEPOINT_EVENT_START event')
+        logger.trace.assert_called_with('Registered ad cuepoint new_identifier due to START event')
 
     def test_non_stop_existing_identifier_ignored(self, logger, base_args):
         processor = SabrProcessor(**base_args)
         cuepoint = Cuepoint(
-            type=CuepointType.CUEPOINT_TYPE_AD,
-            event=CuepointEvent.CUEPOINT_EVENT_CONTINUE,
+            type=CuepointType.AD,
+            event=CuepointEvent.CONTINUE,
             identifier='existing_identifier',
         )
         processor.process_cuepoint_list(CuepointList(cuepoint_info=[make_cuepoint_info(identifier='existing_identifier')]))
@@ -1590,20 +1590,20 @@ class TestCuepointList:
         assert processor.ad_cuepoints['existing_identifier'].cuepoint_id == 'existing_identifier'
         assert processor.ad_cuepoints['existing_identifier'].magic_value == 11
         logger.trace.assert_called_with(
-            f'Received ad cuepoint CUEPOINT_EVENT_CONTINUE event for existing cuepoint identifier, ignoring: {cuepoint}')
+            f'Received ad cuepoint CONTINUE event for existing cuepoint identifier, ignoring: {cuepoint}')
 
     def test_processes_multiple_cuepoints_in_one_list(self, logger, base_args):
         processor = SabrProcessor(**base_args)
-        missing_cuepoint_info = CuepointInfo(track_type=TrackType.TRACK_TYPE_AUDIO)
-        missing_identifier = Cuepoint(type=CuepointType.CUEPOINT_TYPE_AD, event=CuepointEvent.CUEPOINT_EVENT_START)
+        missing_cuepoint_info = CuepointInfo(track_type=TrackType.AUDIO)
+        missing_identifier = Cuepoint(type=CuepointType.AD, event=CuepointEvent.START)
         unknown_stop = Cuepoint(
-            type=CuepointType.CUEPOINT_TYPE_AD,
-            event=CuepointEvent.CUEPOINT_EVENT_STOP,
+            type=CuepointType.AD,
+            event=CuepointEvent.STOP,
             identifier='unknown_identifier',
         )
         existing_continue = Cuepoint(
-            type=CuepointType.CUEPOINT_TYPE_AD,
-            event=CuepointEvent.CUEPOINT_EVENT_CONTINUE,
+            type=CuepointType.AD,
+            event=CuepointEvent.CONTINUE,
             identifier='new_identifier',
         )
 
@@ -1613,21 +1613,21 @@ class TestCuepointList:
             make_cuepoint_info(identifier='stopped_identifier'),
             make_cuepoint_info(
                 identifier='stopped_identifier',
-                event=CuepointEvent.CUEPOINT_EVENT_STOP,
-                track_type=TrackType.TRACK_TYPE_VIDEO,
+                event=CuepointEvent.STOP,
+                track_type=TrackType.VIDEO,
             ),
             make_cuepoint_info(cuepoint=unknown_stop),
-            CuepointInfo(cuepoint=missing_identifier, track_type=TrackType.TRACK_TYPE_AUDIO),
+            CuepointInfo(cuepoint=missing_identifier, track_type=TrackType.AUDIO),
             missing_cuepoint_info,
         ]))
 
         assert set(processor.ad_cuepoints) == {'new_identifier'}
         assert processor.ad_cuepoints['new_identifier'].cuepoint_id == 'new_identifier'
         assert processor.ad_cuepoints['new_identifier'].magic_value == 11
-        logger.trace.assert_any_call('Registered ad cuepoint new_identifier due to CUEPOINT_EVENT_START event')
+        logger.trace.assert_any_call('Registered ad cuepoint new_identifier due to START event')
         logger.trace.assert_any_call(
-            f'Received ad cuepoint CUEPOINT_EVENT_CONTINUE event for existing cuepoint identifier, ignoring: {existing_continue}')
-        logger.trace.assert_any_call('Registered ad cuepoint stopped_identifier due to CUEPOINT_EVENT_START event')
+            f'Received ad cuepoint CONTINUE event for existing cuepoint identifier, ignoring: {existing_continue}')
+        logger.trace.assert_any_call('Registered ad cuepoint stopped_identifier due to START event')
         logger.trace.assert_any_call('Cleared ad cuepoint stopped_identifier due to STOP event')
         logger.trace.assert_any_call(
             f'Received ad cuepoint STOP event for unknown cuepoint identifier, ignoring: {unknown_stop}')
@@ -1638,11 +1638,11 @@ class TestCuepointList:
         processor = SabrProcessor(**base_args)
 
         processor.process_cuepoint_list(CuepointList(cuepoint_info=[
-            make_cuepoint_info(identifier='first_identifier', event=CuepointEvent.CUEPOINT_EVENT_PREDICT_START),
+            make_cuepoint_info(identifier='first_identifier', event=CuepointEvent.PREDICT_START),
             make_cuepoint_info(
                 identifier='second_identifier',
-                event=CuepointEvent.CUEPOINT_EVENT_INSERTION,
-                track_type=TrackType.TRACK_TYPE_VIDEO,
+                event=CuepointEvent.INSERTION,
+                track_type=TrackType.VIDEO,
             ),
         ]))
         assert len(processor.ad_cuepoints) == 2
@@ -2398,7 +2398,7 @@ class TestMediaHeader:
         fim = make_format_im(selector)
         processor.process_format_initialization_metadata(fim)
         media_header = make_media_header(selector, sequence_no=1)
-        media_header.compression = CompressionAlgorithm.COMPRESSION_ALGORITHM_GZIP
+        media_header.compression = CompressionAlgorithm.GZIP
 
         # should raise an error as unsupported
         with pytest.raises(SabrStreamError, match='Compression not supported in MediaHeader'):

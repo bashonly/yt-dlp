@@ -5,23 +5,23 @@ from yt_dlp.extractor.youtube._proto.videostreaming.time_range import TimeRange
 
 
 class TrackType(protobug.Enum, strict=False):
-    TRACK_TYPE_AUDIO = 1
-    TRACK_TYPE_VIDEO = 2
+    AUDIO = 1
+    VIDEO = 2
 
 
 class CuepointEvent(protobug.Enum, strict=False):
-    CUEPOINT_EVENT_UNKNOWN = 0
-    CUEPOINT_EVENT_START = 1
-    CUEPOINT_EVENT_CONTINUE = 2
-    CUEPOINT_EVENT_STOP = 3
-    CUEPOINT_EVENT_INSERTION = 4
-    CUEPOINT_EVENT_PREDICT_START = 5
+    UNKNOWN = 0
+    START = 1
+    CONTINUE = 2
+    STOP = 3
+    INSERTION = 4
+    PREDICT_START = 5
 
 
 class CuepointType(protobug.Enum, strict=False):
-    CUEPOINT_TYPE_UNKNOWN = 0
-    CUEPOINT_TYPE_AD = 1
-    CUEPOINT_TYPE_SLATE = 2
+    UNKNOWN = 0
+    AD = 1
+    SLATE = 2
 
 
 @protobug.message

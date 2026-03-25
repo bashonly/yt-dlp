@@ -3,7 +3,8 @@ import re
 import time
 import pytest
 
-from test.test_sabr.test_stream.helpers import setup_sabr_stream_av
+from test.test_sabr.test_stream.helpers import setup_sabr_stream_av, Respond403Processor
+from yt_dlp.extractor.youtube._streaming.sabr.exceptions import SabrUrlExpired, SabrStreamError
 from yt_dlp.extractor.youtube._streaming.sabr.part import RefreshPlayerResponseSabrPart
 
 
@@ -93,3 +94,61 @@ def test_not_expired(logger, client_info):
     )
     parts = list(sabr_stream.iter_parts())
     assert all(not isinstance(part, RefreshPlayerResponseSabrPart) for part in parts)
+
+
+def test_expired_403(logger, client_info):
+    # If the URL has expired and the server gives a 403, should throw a SabrUrlExpired error
+    expires_at = int(time.time() - 1)  # already expired
+    sabr_stream, rh, _ = setup_sabr_stream_av(
+        client_info=client_info,
+        logger=logger,
+        url=f'https://expire.googlevideo.com/sabr?expire={int(expires_at)}&sabr=1',
+        sabr_response_processor=Respond403Processor(),
+    )
+
+    with pytest.raises(
+        SabrUrlExpired,
+        match=r'SABR URL has expired. The download will need to be restarted.',
+    ):
+        list(sabr_stream.iter_parts())
+
+    assert len(rh.request_history) == 1
+    assert rh.request_history[0].response.status == 403
+
+
+def test_non_expired_403(logger, client_info):
+    # Sanity check: if we get a 403 but url has not expired, should give a SabrStreamError
+    expires_at = int(time.time() + 300)  # not expired
+
+    sabr_stream, rh, _ = setup_sabr_stream_av(
+        client_info=client_info,
+        logger=logger,
+        url=f'https://expire.googlevideo.com/sabr?expire={int(expires_at)}&sabr=1',
+        sabr_response_processor=Respond403Processor(),
+    )
+    with pytest.raises(
+        SabrStreamError,
+        match='HTTP Error: 403 - Forbidden',
+    ):
+        list(sabr_stream.iter_parts())
+
+    assert len(rh.request_history) == 1
+    assert rh.request_history[0].response.status == 403
+
+
+def test_no_expiry_403(logger, client_info):
+    # Sanity check: if we get a 403 but url has no expiry, should give a SabrStreamError
+    sabr_stream, rh, _ = setup_sabr_stream_av(
+        client_info=client_info,
+        logger=logger,
+        url='https://expire.googlevideo.com/sabr?sabr=1',
+        sabr_response_processor=Respond403Processor(),
+    )
+    with pytest.raises(
+        SabrStreamError,
+        match='HTTP Error: 403 - Forbidden',
+    ):
+        list(sabr_stream.iter_parts())
+
+    assert len(rh.request_history) == 1
+    assert rh.request_history[0].response.status == 403

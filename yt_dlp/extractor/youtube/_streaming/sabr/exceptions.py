@@ -2,21 +2,21 @@ from yt_dlp.extractor.youtube._proto.videostreaming import FormatId
 from yt_dlp.utils import YoutubeDLError
 
 
-class SabrStreamConsumedError(YoutubeDLError):
-    pass
-
-
 class SabrStreamError(YoutubeDLError):
     pass
 
 
-class InvalidSabrUrl(YoutubeDLError):
+class SabrStreamConsumedError(SabrStreamError):
+    pass
+
+
+class InvalidSabrUrl(SabrStreamError):
     def __init__(self, reason: str, url: str):
         self.url = url
         super().__init__(f'Invalid SABR URL: {reason} (url={url})')
 
 
-class BroadcastIdChanged(YoutubeDLError):
+class BroadcastIdChanged(SabrStreamError):
     def __init__(self, old: str, new: str):
         super().__init__(f'Broadcast ID changed from {old} to {new}. The download will need to be restarted.')
 
@@ -47,3 +47,8 @@ class PoTokenError(SabrStreamError):
 
 class StreamStallError(SabrStreamError):
     pass
+
+
+class SabrUrlExpired(SabrStreamError):
+    def __init__(self):
+        super().__init__('SABR URL has expired. The download will need to be restarted.')

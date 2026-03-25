@@ -128,6 +128,9 @@ class SabrRequestHandler:
             vpabr=vpabr,
         ))
 
+        if not (200 <= response.status < 300):
+            raise HTTPError(response)
+
         return response
 
 
@@ -1019,3 +1022,8 @@ def setup_sabr_stream_av(
         **options,
     )
     return sabr_stream, rh, (audio_selector, video_selector) if not caption_selector else (audio_selector, video_selector, caption_selector)
+
+
+class Respond403Processor(SabrResponseProcessor):
+    def process_request(self, data: bytes, url: str, request_number: int) -> tuple[VideoPlaybackAbrRequest | None, list[UMPPart | Exception], int]:
+        return None, [], 403

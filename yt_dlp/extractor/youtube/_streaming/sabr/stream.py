@@ -33,6 +33,7 @@ from .exceptions import (
     PoTokenError,
     SabrStreamConsumedError,
     SabrStreamError,
+    SabrUrlExpired,
     StreamStallError,
 )
 from .models import AudioSelector, CaptionSelector, ConsumedRange, InitializedFormat, SabrLogger, VideoSelector
@@ -310,8 +311,10 @@ class SabrStream:
                 # retry on 5xx errors only
                 if 500 <= e.status < 600:
                     self._current_http_retry.error = e
+                elif e.status == 403 and self._has_expired():
+                    raise SabrUrlExpired from e
                 else:
-                    raise SabrStreamError(f'HTTP Error: {e.status} - {e.reason}')
+                    raise SabrStreamError(f'HTTP Error: {e.status} - {e.reason}') from e
 
             if response:
                 try:
@@ -544,6 +547,12 @@ class SabrStream:
         self.logger.debug(
             f'Requesting player response refresh as SABR URL is due to expire within {self.expiry_threshold_sec} seconds')
         yield RefreshPlayerResponseSabrPart(reason=RefreshPlayerResponseSabrPart.Reason.SABR_URL_EXPIRY)
+
+    def _has_expired(self):
+        expires_at = self._gvs_expiry()
+        if not expires_at:
+            return False
+        return self._gvs_expiry() <= time.time()
 
     # region: Stream progression
 

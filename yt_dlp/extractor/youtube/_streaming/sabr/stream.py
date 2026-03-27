@@ -253,16 +253,16 @@ class SabrStream:
                 self._process_fallback_server()
             RetryManager.report_retry(
                 err, count, retries, info=self.logger.info,
-                warn=lambda msg: self.logger.warning(f'[sabr] Got error: {msg}'),
-                error=None if fatal else lambda msg: self.logger.warning(f'[sabr] Got error: {msg}'),
+                warn=lambda msg: self.logger.warning(f'Got error: {msg}'),
+                error=None if fatal else lambda msg: self.logger.warning(f'Got error: {msg}'),
                 sleep_func=self.retry_sleep_func,
             )
 
         def report_sps_retry(err, count, retries, fatal=True):
             RetryManager.report_retry(
                 err, count, retries, info=self.logger.info,
-                warn=lambda msg: self.logger.warning(f'[sabr] Got error: {msg}'),
-                error=None if fatal else lambda msg: self.logger.warning(f'[sabr] Got error: {msg}'),
+                warn=lambda msg: self.logger.warning(f'Got error: {msg}'),
+                error=None if fatal else lambda msg: self.logger.warning(f'Got error: {msg}'),
                 sleep_func=self.retry_sleep_func,
             )
 

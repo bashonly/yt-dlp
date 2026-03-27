@@ -21,7 +21,7 @@ from yt_dlp.extractor.youtube._streaming.sabr.part import (
 )
 from yt_dlp.extractor.youtube._streaming.sabr.stream import SabrStream, Heartbeat
 from yt_dlp.extractor.youtube._streaming.sabr.models import ConsumedRange, AudioSelector, VideoSelector, CaptionSelector
-from yt_dlp.extractor.youtube._streaming.sabr.exceptions import SabrStreamError
+from yt_dlp.extractor.youtube._streaming.sabr.exceptions import SabrStreamError, BroadcastIdChanged
 from yt_dlp.extractor.youtube._proto.innertube import ClientInfo, ClientName
 from yt_dlp.extractor.youtube._proto.videostreaming import FormatId
 from yt_dlp.extractor.youtube._streaming.sabr.processor import JS_MAX_SAFE_INTEGER
@@ -364,6 +364,14 @@ class SabrFD(FileDownloader):
                         self._log_dvr_window_availability(part.available_dvr_window_ms, live_from_start)
                         logged_dvr_message = True
 
+            for writer in writers.values():
+                writer.finish()
+        except BroadcastIdChanged as e:
+            # Core does not currently support multiple broadcasts under the same video ID.
+            self.write_debug(f'[SABR Debug Info]: {stream.create_stats_str()}')
+            self.write_debug(f'Got error: {e!r}')
+            self.report_warning(
+                'The current stream download is complete, however a new stream may have started under the same video ID.')
             for writer in writers.values():
                 writer.finish()
         except SabrStreamError as e:

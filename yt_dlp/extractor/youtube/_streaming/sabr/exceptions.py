@@ -18,7 +18,7 @@ class InvalidSabrUrl(SabrStreamError):
 
 class BroadcastIdChanged(SabrStreamError):
     def __init__(self, old: str, new: str):
-        super().__init__(f'Broadcast ID changed from {old} to {new}. The download will need to be restarted.')
+        super().__init__(f'Broadcast ID changed from {old} to {new}.')
 
 
 class MediaSegmentMismatchError(SabrStreamError):

@@ -286,7 +286,7 @@ class SabrFD(FileDownloader):
                     ):
                         # Fetch a PO token with bypass_cache=True
                         # (ensure we create a new one)
-                        po_token = fetch_po_token_fn(bypass_cache=True)
+                        po_token = fetch_po_token_fn(bypass_cache=True, required=True)
                         if po_token:
                             stream.processor.po_token = po_token
                     elif part.status in (
@@ -294,7 +294,7 @@ class SabrFD(FileDownloader):
                         part.PoTokenStatus.PENDING_MISSING,
                     ):
                         # Fetch a PO Token, bypass_cache=False
-                        po_token = fetch_po_token_fn()
+                        po_token = fetch_po_token_fn(bypass_cache=False, required=True)
                         if po_token:
                             stream.processor.po_token = po_token
 

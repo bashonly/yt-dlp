@@ -55,7 +55,7 @@ class TestRequestRetries:
         assert request.request.data == retried_request.request.data
 
         # Should log the retry attempt
-        logger.warning.assert_any_call('[sabr] Got error: simulated transport error. Retrying (1/10)...')
+        logger.warning.assert_any_call('Got error: simulated transport error. Retrying (1/10)...')
 
     def test_retry_on_http_5xx(self, logger, client_info):
         # Should retry on HTTP 5xx errors
@@ -83,7 +83,7 @@ class TestRequestRetries:
         # The video_playback_abr_request should be the same for both requests - no changes in state (e.g playback time)
         assert request.request.data == retried_request.request.data
         # Should log the retry attempt
-        logger.warning.assert_any_call('[sabr] Got error: HTTP Error 500: Internal Server Error. Retrying (1/10)...')
+        logger.warning.assert_any_call('Got error: HTTP Error 500: Internal Server Error. Retrying (1/10)...')
 
     def test_no_retry_on_http_4xx(self, logger, client_info):
         # Should NOT retry on HTTP 4xx errors and should raise SabrStreamError
@@ -149,9 +149,9 @@ class TestRequestRetries:
         assert error_requests[0].request.data == retried_request.request.data
 
         # Should log each retry attempt
-        logger.warning.assert_any_call('[sabr] Got error: simulated transport error. Retrying (1/10)...')
-        logger.warning.assert_any_call('[sabr] Got error: simulated transport error. Retrying (2/10)...')
-        logger.warning.assert_any_call('[sabr] Got error: simulated transport error. Retrying (3/10)...')
+        logger.warning.assert_any_call('Got error: simulated transport error. Retrying (1/10)...')
+        logger.warning.assert_any_call('Got error: simulated transport error. Retrying (2/10)...')
+        logger.warning.assert_any_call('Got error: simulated transport error. Retrying (3/10)...')
 
     def test_reset_retry_counter(self, logger, client_info):
         # Should reset the retry counter after a successful request
@@ -183,8 +183,8 @@ class TestRequestRetries:
         assert second_retried_request.error is None
 
         # Should log each retry attempt with correct counts
-        logger.warning.assert_any_call('[sabr] Got error: simulated transport error. Retrying (1/10)...')
-        logger.warning.assert_any_call('[sabr] Got error: simulated transport error. Retrying (1/10)...')
+        logger.warning.assert_any_call('Got error: simulated transport error. Retrying (1/10)...')
+        logger.warning.assert_any_call('Got error: simulated transport error. Retrying (1/10)...')
 
     def test_exceed_max_retries(self, logger, client_info):
         # Should raise SabrStreamError after exceeding max retries
@@ -206,7 +206,7 @@ class TestRequestRetries:
 
         # Should log each retry attempt
         for i in range(1, 11):
-            logger.warning.assert_any_call(f'[sabr] Got error: simulated transport error. Retrying ({i}/10)...')
+            logger.warning.assert_any_call(f'Got error: simulated transport error. Retrying ({i}/10)...')
 
     def test_http_retries_option(self, logger, client_info):
         # Should respect the http_retries option for max retries
@@ -229,7 +229,7 @@ class TestRequestRetries:
 
         # Should log each retry attempt
         for i in range(1, 6):
-            logger.warning.assert_any_call(f'[sabr] Got error: simulated transport error. Retrying ({i}/5)...')
+            logger.warning.assert_any_call(f'Got error: simulated transport error. Retrying ({i}/5)...')
 
     @mock_time
     def test_http_retry_sleep_func(self, logger, client_info):
@@ -252,8 +252,8 @@ class TestRequestRetries:
         sleep_mock.assert_any_call(n=1)
 
         # Check logs for retry attempts
-        logger.warning.assert_any_call('[sabr] Got error: simulated transport error. Retrying (1/3)...')
-        logger.warning.assert_any_call('[sabr] Got error: simulated transport error. Retrying (2/3)...')
+        logger.warning.assert_any_call('Got error: simulated transport error. Retrying (1/3)...')
+        logger.warning.assert_any_call('Got error: simulated transport error. Retrying (2/3)...')
         # Should log the sleep
         logger.info.assert_any_call('Sleeping 2.50 seconds ...')
         time.sleep.assert_called_with(2.5)
@@ -337,7 +337,7 @@ class TestResponseRetries:
         assert request.request.data == retried_request.request.data
 
         # Should log the retry attempt
-        logger.warning.assert_any_call('[sabr] Got error: simulated SABR response error. Retrying (1/10)...')
+        logger.warning.assert_any_call('Got error: simulated SABR response error. Retrying (1/10)...')
 
     def test_retry_read_failure_media_part(self, logger, client_info):
         # Should retry if a TransportError occurs while reading a media part
@@ -363,7 +363,7 @@ class TestResponseRetries:
         assert request.request.data == retried_request.request.data
 
         # TODO: currently raises a partial segments warning, this is incorrect!
-        logger.warning.assert_any_call('[sabr] Got error: simulated read error. Retrying (1/10)...')
+        logger.warning.assert_any_call('Got error: simulated read error. Retrying (1/10)...')
 
     def test_retry_failure_nth_media_part(self, logger, client_info):
         # Should retry if a TransportError occurs while reading the Nth media part
@@ -401,7 +401,7 @@ class TestResponseRetries:
         assert matches == 1, 'Expected one buffered range to be advanced by one segment after retrying Nth media part read failure'
 
         # TODO: currently raises a partial segments warning, this is incorrect!
-        logger.warning.assert_any_call('[sabr] Got error: simulated read error. Retrying (1/10)...')
+        logger.warning.assert_any_call('Got error: simulated read error. Retrying (1/10)...')
 
     def test_retry_on_response_read_failure_end(self, logger, client_info):
         # Should retry if a TransportError occurs after we have read all segments in the response and video
@@ -450,7 +450,7 @@ class TestResponseRetries:
                 matches += 1
         assert matches >= 1, 'Expected at least one buffered range to be advanced by one segment after retrying Nth media part read failure'
 
-        logger.warning.assert_any_call('[sabr] Got error: simulated read error. Retrying (1/10)...')
+        logger.warning.assert_any_call('Got error: simulated read error. Retrying (1/10)...')
 
 
 class TestSabrErrorRetries:
@@ -485,7 +485,7 @@ class TestSabrErrorRetries:
         # xxx: not recorded as an error in the request history as SabrError is part of normal processing.
         # We rely on assert_media_sequence_in_order to ensure all parts were eventually retrieved and the logs for retry attempts.
         logger.warning.assert_any_call(
-            "[sabr] Got error: SABR Protocol Error: SabrError(type='simulated SABR error', action=1, error=None). Retrying (1/10)...")
+            "Got error: SABR Protocol Error: SabrError(type='simulated SABR error', action=1, error=None). Retrying (1/10)...")
 
 
 class TestGVSFallbackRetries:
@@ -524,7 +524,7 @@ class TestGVSFallbackRetries:
 
         # Should have 8 fallback attempts logged
         for i in range(1, 9):
-            logger.warning.assert_any_call(f'[sabr] Got error: simulated transport error. Retrying ({i}/10)...')
+            logger.warning.assert_any_call(f'Got error: simulated transport error. Retrying ({i}/10)...')
 
         logger.warning.assert_any_call('Falling back to host rr3---sn-7654321.googlevideo.com')
 
@@ -564,7 +564,7 @@ class TestGVSFallbackRetries:
         # Should have 8 fallback attempts logged
         for i in range(1, 9):
             logger.warning.assert_any_call(
-                f'[sabr] Got error: HTTP Error 500: Internal Server Error. Retrying ({i}/10)...')
+                f'Got error: HTTP Error 500: Internal Server Error. Retrying ({i}/10)...')
 
         logger.warning.assert_any_call('Falling back to host rr3---sn-7654321.googlevideo.com')
 
@@ -641,7 +641,7 @@ class TestGVSFallbackRetries:
 
         # Should have 4 fallback attempts logged
         for i in range(1, 4):
-            logger.warning.assert_any_call(f'[sabr] Got error: simulated transport error. Retrying ({i}/10)...')
+            logger.warning.assert_any_call(f'Got error: simulated transport error. Retrying ({i}/10)...')
 
         logger.warning.assert_any_call('Falling back to host rr3---sn-7654321.googlevideo.com')
 
@@ -699,7 +699,7 @@ class TestGVSFallbackRetries:
 
         # xxx: not recorded as an error in the request history as SabrError is part of normal processing.
         logger.warning.assert_any_call(
-            "[sabr] Got error: SABR Protocol Error: SabrError(type='simulated SABR error', action=1, error=None). Retrying (1/10)...")
+            "Got error: SABR Protocol Error: SabrError(type='simulated SABR error', action=1, error=None). Retrying (1/10)...")
 
         # All requests should have the same host
         for request in rh.request_history:

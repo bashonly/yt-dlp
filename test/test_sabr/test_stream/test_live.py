@@ -720,7 +720,7 @@ class TestLiveStreamStall:
 
         with pytest.raises(
             BroadcastIdChanged,
-            match=rf'Broadcast ID changed from {LIVE_BROADCAST_ID} to 2. The download will need to be restarted.',
+            match=rf'Broadcast ID changed from {LIVE_BROADCAST_ID} to 2.',
         ):
             list(sabr_stream.iter_parts())
 
@@ -2065,7 +2065,7 @@ class TestLiveEndErrorRetriesExhausted:
 
         # Should have 10 fallback attempts logged
         for i in range(1, 10):
-            logger.warning.assert_any_call(f'[sabr] Got error: simulated transport error. Retrying ({i}/10)...')
+            logger.warning.assert_any_call(f'Got error: simulated transport error. Retrying ({i}/10)...')
 
         # Both formats should have been initialized
         assert len(sabr_stream.processor.initialized_formats) == 2
@@ -2129,7 +2129,7 @@ class TestLiveEndErrorRetriesExhausted:
 
         # Should have 10 fallback attempts logged
         for i in range(1, 10):
-            logger.warning.assert_any_call(f'[sabr] Got error: HTTP Error 500: Internal Server Error. Retrying ({i}/10)...')
+            logger.warning.assert_any_call(f'Got error: HTTP Error 500: Internal Server Error. Retrying ({i}/10)...')
 
         # Both formats should have been initialized
         assert len(sabr_stream.processor.initialized_formats) == 2
@@ -2197,7 +2197,7 @@ class TestLiveEndErrorRetriesExhausted:
 
         # Should have 10 fallback attempts logged
         for i in range(1, http_retries):
-            logger.warning.assert_any_call(f'[sabr] Got error: simulated transport error. Retrying ({i}/{http_retries})...')
+            logger.warning.assert_any_call(f'Got error: simulated transport error. Retrying ({i}/{http_retries})...')
 
         # Both formats should have been initialized
         assert len(sabr_stream.processor.initialized_formats) == 2
@@ -2260,7 +2260,7 @@ class TestLiveEndErrorRetriesExhausted:
 
         # Should have 10 fallback attempts logged
         for i in range(1, 10):
-            logger.warning.assert_any_call(f'[sabr] Got error: simulated transport error. Retrying ({i}/10)...')
+            logger.warning.assert_any_call(f'Got error: simulated transport error. Retrying ({i}/10)...')
 
         # Both formats should have been initialized
         assert len(sabr_stream.processor.initialized_formats) == 2
@@ -2319,7 +2319,7 @@ class TestLiveEndErrorRetriesExhausted:
 
         # Should have 10 fallback attempts logged
         for i in range(1, 10):
-            logger.warning.assert_any_call(f'[sabr] Got error: simulated transport error. Retrying ({i}/10)...')
+            logger.warning.assert_any_call(f'Got error: simulated transport error. Retrying ({i}/10)...')
 
         # Both formats should have been initialized
         assert len(sabr_stream.processor.initialized_formats) == 2
@@ -2380,7 +2380,7 @@ class TestLiveEndErrorRetriesExhausted:
 
         # Should have 10 fallback attempts logged
         for i in range(1, 10):
-            logger.warning.assert_any_call(f'[sabr] Got error: simulated transport error. Retrying ({i}/10)...')
+            logger.warning.assert_any_call(f'Got error: simulated transport error. Retrying ({i}/10)...')
 
         # Both formats should have been initialized
         assert len(sabr_stream.processor.initialized_formats) == 2
@@ -2453,7 +2453,7 @@ class TestLiveEndErrorRetriesExhausted:
 
         # Should have 10 fallback attempts logged
         for i in range(1, 10):
-            logger.warning.assert_any_call(f'[sabr] Got error: simulated transport error. Retrying ({i}/10)...')
+            logger.warning.assert_any_call(f'Got error: simulated transport error. Retrying ({i}/10)...')
 
         # Both formats should have been initialized
         assert len(sabr_stream.processor.initialized_formats) == 2
@@ -2517,7 +2517,7 @@ class TestLiveEndErrorRetriesExhausted:
 
         # Should have 10 fallback attempts logged
         for i in range(1, 10):
-            logger.warning.assert_any_call(f'[sabr] Got error: simulated transport error. Retrying ({i}/10)...')
+            logger.warning.assert_any_call(f'Got error: simulated transport error. Retrying ({i}/10)...')
 
         # Both formats should have been initialized
         assert len(sabr_stream.processor.initialized_formats) == 2
@@ -2584,7 +2584,7 @@ class TestLiveEndErrorRetriesExhausted:
 
         # Should have 10 fallback attempts logged
         for i in range(1, 10):
-            logger.warning.assert_any_call(f'[sabr] Got error: simulated transport error. Retrying ({i}/10)...')
+            logger.warning.assert_any_call(f'Got error: simulated transport error. Retrying ({i}/10)...')
 
         # Both formats should have been initialized
         assert len(sabr_stream.processor.initialized_formats) == 2
@@ -2658,7 +2658,7 @@ class TestLiveEndErrorRetriesExhausted:
 
         # Should have 10 fallback attempts logged
         for i in range(1, 10):
-            logger.warning.assert_any_call(f'[sabr] Got error: simulated transport error. Retrying ({i}/10)...')
+            logger.warning.assert_any_call(f'Got error: simulated transport error. Retrying ({i}/10)...')
 
         # Only one format should have been initialized
         assert len(sabr_stream.processor.initialized_formats) == 1

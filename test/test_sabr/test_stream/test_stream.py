@@ -857,7 +857,7 @@ class TestStream:
         )
 
         assert sabr_stream.processor.is_live is True
-        with pytest.raises(BroadcastIdChanged, match=r'Broadcast ID changed from 1 to 2\. The download will need to be restarted\.'):
+        with pytest.raises(BroadcastIdChanged, match=r'Broadcast ID changed from 1 to 2\.'):
             sabr_stream.url = 'https://live.googlevideo.com/sabr?sabr=1&source=yt_live_broadcast&id=xyz.2'
 
     def test_reload_player_response(self, logger, client_info):

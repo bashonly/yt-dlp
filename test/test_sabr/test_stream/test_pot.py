@@ -81,7 +81,7 @@ def test_sps_retry_on_required(logger, client_info):
 
     for i in range(1, DEFAULT_RETRIES):
         logger.warning.assert_any_call(
-            f'[sabr] Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/5)...')
+            f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/5)...')
 
 
 def test_no_retry_on_pending(logger, client_info):
@@ -143,7 +143,7 @@ def test_pending_then_required_retry(logger, client_info):
 
     for i in range(1, DEFAULT_RETRIES + 1):
         logger.warning.assert_any_call(
-            f'[sabr] Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/5)...')
+            f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/5)...')
 
 
 def test_sps_required_retries_exhausted(logger, client_info):
@@ -168,7 +168,7 @@ def test_sps_required_retries_exhausted(logger, client_info):
 
     for i in range(1, DEFAULT_RETRIES + 1):
         logger.warning.assert_any_call(
-            f'[sabr] Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/5)...')
+            f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/5)...')
 
     for request_details in rh.request_history[1:]:
         assert not any(isinstance(part, PoTokenStatusSabrPart) for part in request_details.parts)
@@ -201,7 +201,7 @@ def test_sps_invalid_retries_exhausted(logger, client_info):
 
     for i in range(1, DEFAULT_RETRIES + 1):
         logger.warning.assert_any_call(
-            f'[sabr] Got error: This stream requires a GVS PO Token to continue and the one provided is invalid. Retrying ({i}/5)...')
+            f'Got error: This stream requires a GVS PO Token to continue and the one provided is invalid. Retrying ({i}/5)...')
 
 
 def test_sps_retry_server_stops_sending_sps(logger, client_info):
@@ -234,7 +234,7 @@ def test_sps_retry_server_stops_sending_sps(logger, client_info):
 
     for i in range(1, DEFAULT_RETRIES + 1):
         logger.warning.assert_any_call(
-            f'[sabr] Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/5)...')
+            f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/5)...')
 
     for request_details in rh.request_history[1:]:
         assert not any(isinstance(part, PoTokenStatusSabrPart) for part in request_details.parts)
@@ -256,7 +256,7 @@ def test_required_exceed_max_retries(logger, client_info):
     # Should log each retry attempt
     for i in range(1, DEFAULT_RETRIES + 1):
         logger.warning.assert_any_call(
-            f'[sabr] Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/5)...')
+            f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/5)...')
 
 
 def test_pot_retries_options(logger, client_info):
@@ -276,7 +276,7 @@ def test_pot_retries_options(logger, client_info):
     # Should log each retry attempt
     for i in range(1, 4):
         logger.warning.assert_any_call(
-            f'[sabr] Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/3)...')
+            f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/3)...')
 
 
 @mock_time
@@ -307,7 +307,7 @@ def test_pot_retry_sleep_func(logger, client_info):
     # Check logs for retry attempts
     for i in range(1, 4):
         logger.warning.assert_any_call(
-            f'[sabr] Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/3)...')
+            f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/3)...')
     # Should log the sleep
     logger.info.assert_any_call('Sleeping 2.50 seconds ...')
     time.sleep.assert_called_with(2.5)
@@ -356,8 +356,8 @@ def test_pot_http_retries(logger, client_info):
     # Both retries should be logged with same count
     for i in range(1, 3):
         logger.warning.assert_any_call(
-            f'[sabr] Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/2)...')
-        logger.warning.assert_any_call(f'[sabr] Got error: simulated read error. Retrying ({i}/2)...')
+            f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/2)...')
+        logger.warning.assert_any_call(f'Got error: simulated read error. Retrying ({i}/2)...')
 
 
 def test_pot_http_retries_diff(logger, client_info):
@@ -406,5 +406,5 @@ def test_pot_http_retries_diff(logger, client_info):
     # (note http retries total is 3, pot retries total is 2)
     for i in range(1, 3):
         logger.warning.assert_any_call(
-            f'[sabr] Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/2)...')
-        logger.warning.assert_any_call(f'[sabr] Got error: simulated read error. Retrying ({i}/3)...')
+            f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/2)...')
+        logger.warning.assert_any_call(f'Got error: simulated read error. Retrying ({i}/3)...')

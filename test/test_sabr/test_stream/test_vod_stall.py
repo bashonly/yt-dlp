@@ -147,7 +147,7 @@ def test_no_new_segments_http_retry_then_segments(logger, client_info):
 
     assert rh.request_history[0].parts == rh.request_history[1].parts == []
     assert isinstance(rh.request_history[2].error, TransportError)
-    logger.warning.assert_any_call('[sabr] Got error: simulated transport error. Retrying (1/10)...')
+    logger.warning.assert_any_call('Got error: simulated transport error. Retrying (1/10)...')
 
 
 def test_no_new_segments_http_retry_no_segments(logger, client_info):
@@ -222,7 +222,7 @@ def test_no_new_segments_http_retry_with_segments_reset(logger, client_info):
     assert isinstance(rh.request_history[5].error, TransportError)
     assert rh.request_history[5].parts  # Has new segments
 
-    logger.warning.assert_any_call('[sabr] Got error: simulated transport error. Retrying (1/10)...')
+    logger.warning.assert_any_call('Got error: simulated transport error. Retrying (1/10)...')
 
 
 def test_consumed_segments_counted(logger, client_info):

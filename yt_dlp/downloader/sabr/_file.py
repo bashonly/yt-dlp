@@ -153,13 +153,17 @@ class SequenceFile:
         self.file.read_into(backend)
         self.file.close()
 
-    # TODO: should this also remove/close current segment?
     def remove(self):
         self.close()
         self.file.remove()
+        if self.current_segment:
+            self.current_segment.remove()
+            self.current_segment = None
 
     def close(self):
         self.file.close()
+        if self.current_segment:
+            self.current_segment.close()
 
 
 class SegmentFile:

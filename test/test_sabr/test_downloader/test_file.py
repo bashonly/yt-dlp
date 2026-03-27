@@ -613,6 +613,41 @@ class TestSequenceFile:
         assert sequence_file.sequence.sequence_content_length == GENERAL_SEGMENT_CONTENT_LENGTH - 1
         sequence_file.remove()
 
+    def test_close_closes_current_segment(self, fd, filename, general_sequence):
+        # Should close the current segment when closing the sequence file.
+        # This is for the case we get an error during segment download.
+        sequence_file = SequenceFile(fd, format_filename=filename, sequence=general_sequence)
+        segment_one = generate_segment(1)
+
+        sequence_file.initialize_segment(segment_one)
+        sequence_file.write_segment_data(GENERAL_SEGMENT_DATA, segment_one.segment_id)
+        assert sequence_file.current_segment is not None
+        assert sequence_file.current_segment.file.mode == 'write'
+
+        sequence_file.close()
+        assert sequence_file.current_segment.file.mode is None
+
+    def test_remove_removes_current_segment(self, fd, filename, general_sequence):
+        # Should remove the current segment when removing the sequence file.
+        # This is for the case we get an error during segment download and want to clean up.
+        sequence_file = SequenceFile(
+            fd, format_filename=filename,
+            sequence=dataclasses.replace(general_sequence), segment_memory_file_limit=1)
+        assert isinstance(sequence_file.file, DiskFormatIOBackend)
+        segment_one = generate_segment(1)
+        sequence_file.initialize_segment(segment_one)
+        sequence_file.write_segment_data(GENERAL_SEGMENT_DATA, segment_one.segment_id)
+        assert sequence_file.file.exists() is False  # not written back yet
+        assert sequence_file.current_segment.file.exists() is True
+        assert Path(sequence_file.current_segment.file.filename).exists() is True
+
+        prev_current_segment = sequence_file.current_segment
+        sequence_file.remove()
+        assert sequence_file.file.exists() is False
+        assert sequence_file.current_segment is None
+        assert prev_current_segment.file.exists() is False
+        assert Path(prev_current_segment.file.filename).exists() is False
+
 
 class TestSegmentFile:
     def test_init_segment_file_memory(self, fd, filename, init_segment, backend):

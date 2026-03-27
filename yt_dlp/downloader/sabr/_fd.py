@@ -74,6 +74,12 @@ class SabrFD(FileDownloader):
                     'target_duration_sec': sabr_config.get('target_duration_sec'),
                     'live_from_start': f.get('is_from_start', False),
                 }
+                if not sabr_format_group_config['reload_config_fn']:
+                    self.report_warning(
+                        f'[download] Some SABR downloader features are not available when using --load-info-json. '
+                        f'This may impact the integrity of the download. '
+                        f'It is recommended {self.ydl._format_err("NOT", self.ydl.Styles.EMPHASIS)} to use --load-info-json with YouTube.',
+                        only_once=True)
 
             else:
                 if sabr_format_group_config['server_abr_streaming_url'] != server_abr_streaming_url:
@@ -275,15 +281,13 @@ class SabrFD(FileDownloader):
                     stream.close()
                     break
                 if isinstance(part, PoTokenStatusSabrPart):
-                    if not fetch_po_token_fn:
-                        self.report_warning(
-                            'No fetch PO token function found - this can happen if you use --load-info-json.'
-                            ' The download will fail if a valid PO token is required.', only_once=True)
-                        continue
                     if part.status in (
                         part.PoTokenStatus.INVALID,
                         part.PoTokenStatus.PENDING,
                     ):
+                        if not fetch_po_token_fn:
+                            self._report_pot_callback_unavailable()
+                            continue
                         # Fetch a PO token with bypass_cache=True
                         # (ensure we create a new one)
                         po_token = fetch_po_token_fn(bypass_cache=True, required=True)
@@ -293,6 +297,9 @@ class SabrFD(FileDownloader):
                         part.PoTokenStatus.MISSING,
                         part.PoTokenStatus.PENDING_MISSING,
                     ):
+                        if not fetch_po_token_fn:
+                            self._report_pot_callback_unavailable()
+                            continue
                         # Fetch a PO Token, bypass_cache=False
                         po_token = fetch_po_token_fn(bypass_cache=False, required=True)
                         if po_token:
@@ -351,9 +358,10 @@ class SabrFD(FileDownloader):
                     # TODO: if live, allow a seek as for non-DVR streams the reload may be longer than the buffer duration
                     # TODO: handle po token function change
                     if not reload_config_fn:
-                        raise self.report_warning(
-                            'No reload config function found - cannot refresh SABR streaming URL.'
-                            ' The url will expire soon and the download will fail.')
+                        self.report_warning(
+                            '[download] Unable to reload SABR config: no reload callback available. '
+                            'This can occur if --load-info-json is used. The download will likely fail. ', only_once=True)
+                        continue
                     try:
                         stream.url, stream.processor.video_playback_ustreamer_config = reload_config_fn(part.reload_playback_token)
                     except (TransportError, HTTPError, ExtractorError) as e:
@@ -404,6 +412,12 @@ class SabrFD(FileDownloader):
         else:
             self.to_screen(
                 '[download] Downloading from the live edge; pass --live-from-start to download from the beginning of the stream')
+
+    def _report_pot_callback_unavailable(self):
+        self.report_warning(
+            '[download] Unable to retrieve a new PO Token: no PO Token callback available. '
+            'This can occur if --load-info-json is used. '
+            'The download will likely fail if a valid PO token is required. ', only_once=True)
 
 
 def format_type(f):

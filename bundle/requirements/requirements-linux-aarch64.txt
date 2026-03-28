@@ -413,6 +413,10 @@ packaging==26.0 \
     # via
     #   pyinstaller
     #   pyinstaller-hooks-contrib
+protobug==0.3.0 \
+    --hash=sha256:64666a3053792be3a4d917f8db47a1828e35aa6ca5d948ed90d9bcb61cef84f2 \
+    --hash=sha256:ee81583f376bb38e5e7af425d2453e5e8d4b57bfbf45e5dba1a75329c202652e
+    # via -r bundle/requirements/requirements-linux-aarch64.in
 pycparser==3.0 ; implementation_name != 'PyPy' \
     --hash=sha256:600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29 \
     --hash=sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992

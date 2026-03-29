@@ -140,7 +140,7 @@ def requirements_update(
                 continue
 
             first_comment = False
-            yield '# It was later updated using devscripts/update_ejs.py\n'
+            yield f'# It was later updated using devscripts/update_{package.removeprefix("yt-dlp-")}.py\n'
 
         current.append(line)
         if line.endswith('\\\n'):

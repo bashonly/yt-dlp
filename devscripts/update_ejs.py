@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import collections.abc
-import contextlib
-import io
+# Allow direct execution
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import json
 import hashlib
 import pathlib
-import urllib.request
-import zipfile
+
+from devscripts.utils import (
+    list_wheel_contents,
+    request,
+    requirements_needs_update,
+    requirements_update,
+)
 
 
 TEMPLATE = '''\
@@ -21,7 +29,7 @@ HASHES = {{
 '''
 PACKAGE_NAME = 'yt-dlp-ejs'
 PREFIX = f'    "{PACKAGE_NAME}=='
-PYPI_ARTIFACT_NAME = PACKAGE_NAME.replace('-', '_')
+LIBRARY_NAME = PACKAGE_NAME.replace('-', '_')
 BASE_PATH = pathlib.Path(__file__).parent.parent
 PYPROJECT_PATH = BASE_PATH / 'pyproject.toml'
 PACKAGE_PATH = BASE_PATH / 'yt_dlp/extractor/youtube/jsc/_builtin/vendor'
@@ -38,62 +46,7 @@ MAKEFILE_PATH = BASE_PATH / 'Makefile'
 REQUIREMENTS_PATH = BASE_PATH / 'bundle/requirements'
 
 
-def requirements_needs_update(
-    lines: collections.abc.Iterable[str],
-    package: str,
-    version: str,
-):
-    identifier = f'{package}=='
-    for line in lines:
-        if line.startswith(identifier):
-            return not line.removeprefix(identifier).startswith(version)
-
-    return False
-
-
-def requirements_update(
-    lines: collections.abc.Iterable[str],
-    package: str,
-    new_version: str,
-    new_hashes: list[str],
-):
-    first_comment = True
-    current = []
-    for line in lines:
-        if not line.endswith('\n'):
-            line += '\n'
-
-        if first_comment:
-            comment_line = line.strip()
-            if comment_line.startswith('#'):
-                yield line
-                continue
-
-            first_comment = False
-            yield '# It was later updated using devscripts/update_ejs.py\n'
-
-        current.append(line)
-        if line.endswith('\\\n'):
-            # continue logical line
-            continue
-
-        if not current[0].startswith(f'{package}=='):
-            yield from current
-
-        else:
-            yield f'{package}=={new_version} \\\n'
-            for digest in new_hashes[:-1]:
-                yield f'    --hash={digest} \\\n'
-            yield f'    --hash={new_hashes[-1]}\n'
-
-        current.clear()
-
-
-def request(url: str):
-    return contextlib.closing(urllib.request.urlopen(url))
-
-
-def makefile_variables(
+def ejs_makefile_variables(
         version: str | None = None,
         name: str | None = None,
         digest: str | None = None,
@@ -106,37 +59,11 @@ def makefile_variables(
         'EJS_VERSION': None if keys_only else version,
         'EJS_WHEEL_NAME': None if keys_only else name,
         'EJS_WHEEL_HASH': None if keys_only else digest,
-        'EJS_PY_FOLDERS': None if keys_only else list_wheel_contents(data, 'py', files=False),
-        'EJS_PY_FILES': None if keys_only else list_wheel_contents(data, 'py', folders=False),
-        'EJS_JS_FOLDERS': None if keys_only else list_wheel_contents(data, 'js', files=False),
-        'EJS_JS_FILES': None if keys_only else list_wheel_contents(data, 'js', folders=False),
+        'EJS_PY_FOLDERS': None if keys_only else list_wheel_contents(data, LIBRARY_NAME, 'py', files=False),
+        'EJS_PY_FILES': None if keys_only else list_wheel_contents(data, LIBRARY_NAME, 'py', folders=False),
+        'EJS_JS_FOLDERS': None if keys_only else list_wheel_contents(data, LIBRARY_NAME, 'js', files=False),
+        'EJS_JS_FILES': None if keys_only else list_wheel_contents(data, LIBRARY_NAME, 'js', folders=False),
     }
-
-
-def list_wheel_contents(
-        wheel_data: bytes,
-        suffix: str | None = None,
-        folders: bool = True,
-        files: bool = True,
-) -> str:
-    assert folders or files, 'at least one of "folders" or "files" must be True'
-
-    with zipfile.ZipFile(io.BytesIO(wheel_data)) as zipf:
-        path_gen = (zinfo.filename for zinfo in zipf.infolist())
-
-    filtered = filter(lambda path: path.startswith('yt_dlp_ejs/'), path_gen)
-    if suffix:
-        filtered = filter(lambda path: path.endswith(f'.{suffix}'), filtered)
-
-    files_list = list(filtered)
-    if not folders:
-        return ' '.join(files_list)
-
-    folders_list = list(dict.fromkeys(path.rpartition('/')[0] for path in files_list))
-    if not files:
-        return ' '.join(folders_list)
-
-    return ' '.join(folders_list + files_list)
 
 
 def main():
@@ -151,7 +78,7 @@ def main():
         print(f'{PACKAGE_NAME} dependency line could not be found')
         return
 
-    makefile_info = makefile_variables(keys_only=True)
+    makefile_info = ejs_makefile_variables(keys_only=True)
     prefixes = tuple(f'{key} = ' for key in makefile_info)
     with MAKEFILE_PATH.open() as file:
         for line in file:
@@ -177,11 +104,11 @@ def main():
         digest = asset['digest']
 
         # Is it the source distribution? If so, we only need its hash for the requirements files
-        if name == f'{PYPI_ARTIFACT_NAME}-{version}.tar.gz':
+        if name == f'{LIBRARY_NAME}-{version}.tar.gz':
             requirements_hashes.append(digest)
             continue
 
-        is_wheel = name.startswith(f'{PYPI_ARTIFACT_NAME}-') and name.endswith('.whl')
+        is_wheel = name.startswith(f'{LIBRARY_NAME}-') and name.endswith('.whl')
         if not is_wheel and name not in ASSETS:
             continue
 
@@ -195,7 +122,7 @@ def main():
 
         if is_wheel:
             requirements_hashes.append(digest)
-            wheel_info = makefile_variables(version, name, digest, data)
+            wheel_info = ejs_makefile_variables(version, name, digest, data)
             continue
 
         # calculate sha3-512 digest
@@ -209,6 +136,8 @@ def main():
     for asset_name in ASSETS:
         assert asset_name in hash_mapping, f'{asset_name} not found in release'
 
+    hash_count = len(requirements_hashes)
+    assert hash_count == 2, f'2 requirements hashes expected, but {hash_count} hash(es) were found'
     assert all(wheel_info.get(key) for key in makefile_info), 'wheel info not found in release'
 
     (PACKAGE_PATH / '_info.py').write_text(TEMPLATE.format(

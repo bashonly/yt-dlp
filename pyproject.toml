@@ -200,6 +200,13 @@ python = [
     "pypy3.11",
 ]
 
+[tool.uv]
+exclude-newer = "7 days"
+
+[tool.uv.exclude-newer-package]
+protobug = false
+yt-dlp-ejs = false
+
 [tool.ruff]
 line-length = 120
 

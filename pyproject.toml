@@ -48,7 +48,7 @@ dependencies = []
 [project.optional-dependencies]
 default = [
     "brotli ; implementation_name == 'cpython' and sys_platform != 'ios'",
-    "brotlicffi ; implementation_name != 'cpython' and sys_platform != 'ios'",
+    "brotlicffi ; implementation_name != 'cpython'",
     "certifi",
     "mutagen",
     "pycryptodomex",

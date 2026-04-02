@@ -7,24 +7,29 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import collections.abc
 import contextlib
 import dataclasses
-import datetime as dt
 import itertools
 import json
 import pathlib
 import re
+import subprocess
+import typing
 import urllib.request
 
+from devscripts.tomlparse import parse_toml
 from devscripts.utils import run_process
 
 
-REQUIREMENTS_PATH = pathlib.Path(__file__).parent.parent / 'bundle/requirements'
+BASE_PATH = pathlib.Path(__file__).parent.parent
+PYPROJECT_PATH = BASE_PATH / 'pyproject.toml'
+LOCKFILE_PATH = BASE_PATH / 'uv.lock'
+TEMP_INPUT_PATH = BASE_PATH / 'build/requirements.in'
+REQUIREMENTS_PATH = BASE_PATH / 'bundle/requirements'
 INPUT_TMPL = 'requirements-{}.in'
 OUTPUT_TMPL = 'requirements-{}.txt'
 CUSTOM_COMPILE_COMMAND = 'python -m devscripts.update_bundle_requirements'
-COOLDOWN_DATE = (dt.date.today() - dt.timedelta(days=7)).isoformat()
-FUTURE_DATE = (dt.date.today() + dt.timedelta(days=1)).isoformat()
 
 COOLDOWN_EXCEPTIONS = ('protobug', 'yt-dlp-ejs')
 
@@ -33,6 +38,18 @@ LINUX_MUSL_PYTHON_VERISON = '3.14'
 WINDOWS_INTEL_PYTHON_VERSION = '3.10'
 WINDOWS_ARM64_PYTHON_VERSION = '3.13'
 MACOS_PYTHON_VERSION = '3.14'
+
+EXTRAS_TABLE = 'project.optional-dependencies'
+GROUPS_TABLE = 'dependency-groups'
+
+HIDDEN_EXTRAS = ('curl-cffi-compat',)
+
+LOCK_EXTRAS = {
+    'lock': 'default',
+    'curl-cffi-lock': 'curl-cffi',
+    'secretstorage-lock': 'secretstorage',
+    'deno-lock': 'deno',
+}
 
 
 @dataclasses.dataclass
@@ -139,11 +156,92 @@ PYINSTALLER_BUILDS_TARGETS = {
 PYINSTALLER_BUILDS_URL = 'https://api.github.com/repos/yt-dlp/Pyinstaller-Builds/releases/latest'
 
 PYINSTALLER_BUILDS_TMPL = '''\
-{}pyinstaller@{} \\
+{}pyinstaller @ {} \\
     --hash={}
 '''
 
 PYINSTALLER_VERSION_RE = re.compile(r'pyinstaller-(?P<version>[0-9]+\.[0-9]+\.[0-9]+)-')
+
+
+def generate_table_lines(
+    table_name: str,
+    table: dict[str, list[str | dict[str, str]]],
+) -> collections.abc.Iterator[str]:
+    yield f'[{table_name}]\n'
+    for name, array in table.items():
+        yield f'{name} = ['
+        if array:
+            yield '\n'
+        for element in array:
+            yield '    '
+            if isinstance(element, dict):
+                yield '{ ' + ', '.join(f'{k} = "{v}"' for k, v in element.items()) + ' }'
+            else:
+                yield f'"{element}"'
+            yield ',\n'
+        yield ']\n'
+    yield '\n'
+
+
+def replace_table_in_pyproject(
+    pyproject_text: str,
+    table_name: str,
+    table: dict[str, list[str | dict[str, str]]],
+) -> collections.abc.Iterator[str]:
+    INSIDE = 1
+    BEYOND = 2
+
+    state = 0
+    for line in pyproject_text.splitlines(True):
+        if state == INSIDE:
+            if line == '\n':
+                state = BEYOND
+            continue
+        if line != f'[{table_name}]\n' or state == BEYOND:
+            yield line
+            continue
+        yield from generate_table_lines(table_name, table)
+        state = INSIDE
+
+
+def modify_and_write_pyproject(
+    pyproject_text: str,
+    table_name: str,
+    table: dict[str, list[str | dict[str, str]]],
+) -> None:
+    with PYPROJECT_PATH.open(mode='w') as f:
+        f.writelines(replace_table_in_pyproject(pyproject_text, table_name, table))
+
+
+def parse_dependency(line: str) -> tuple[str, str, str]:
+    package_name, _, rest = line.partition('==')
+    pinned_version, _, markers = rest.partition(';')
+    return package_name, pinned_version.rstrip(), markers.strip()
+
+
+def verify_against_lockfile(
+    requirements_path: pathlib.Path,
+    lockfile: dict[str, typing.Any],
+    hidden_extras: dict[str, list[tuple[str, str, str]]] | None = None,
+) -> None:
+    exceptions = [
+        # Ignore markers; only check against package name and version
+        parse_dependency(dep)[:2] for dep in itertools.chain.from_iterable(hidden_extras.values())
+    ] if hidden_extras else []
+
+    with requirements_path.open() as f:
+        for line in f:
+            if line.lstrip().startswith(('--hash=', '#')) or not line.strip():
+                continue
+            # Ignore packages pinned to URL
+            if line.partition('@')[2].lstrip().startswith('https://'):
+                continue
+            package, version, _ = parse_dependency(line.rstrip().removesuffix('\\').rstrip())
+            if (package, version) in exceptions:
+                continue
+            lock_package = next(pkg for pkg in lockfile['package'] if pkg['name'] == package)
+            lock_version = lock_package['version']
+            assert version == lock_version, f'version mismatch for {package}: {version} != {lock_version}'
 
 
 def write_requirements_input(filepath: pathlib.Path, *args: str) -> None:
@@ -152,27 +250,73 @@ def write_requirements_input(filepath: pathlib.Path, *args: str) -> None:
         '--omit-default', '--print', *args).stdout)
 
 
-def run_pip_compile(python_platform: str, python_version: str, requirements_input_path: pathlib.Path, *args: str) -> str:
+def run_pip_compile(
+    python_platform: str,
+    python_version: str,
+    requirements_input_path: pathlib.Path,
+    *args: str,
+) -> subprocess.CompletedProcess:
     return run_process(
         'uv', 'pip', 'compile',
-        '--no-config',
+        '--no-python-downloads',
         '--quiet',
         '--no-progress',
         '--color=never',
-        '--upgrade',
-        f'--exclude-newer={COOLDOWN_DATE}',
-        *(f'--exclude-newer-package={package}={FUTURE_DATE}' for package in COOLDOWN_EXCEPTIONS),
         f'--python-platform={python_platform}',
         f'--python-version={python_version}',
         '--generate-hashes',
         '--no-strip-markers',
         f'--custom-compile-command={CUSTOM_COMPILE_COMMAND}',
-        str(requirements_input_path),
         '--format=requirements.txt',
-        *args)
+        *args, str(requirements_input_path))
 
 
-def main():
+def run_pip_compile_universal(
+    requirements_input_path: pathlib.Path,
+    *args: str,
+) -> subprocess.CompletedProcess:
+    return run_process(
+        'uv', 'pip', 'compile',
+        '--no-python-downloads',
+        '--quiet',
+        '--no-progress',
+        '--color=never',
+        '--universal',
+        '--no-annotate',
+        '--no-header',
+        '--format=requirements.txt',
+        *args, str(requirements_input_path))
+
+
+def update_requirements(upgrade_only: str | None = None):
+    # Are we upgrading all packages or only one (e.g. 'yt-dlp-ejs' or 'protobug')?
+    upgrade_arg = '--upgrade' + (f'-package={upgrade_only}' if upgrade_only else '')
+
+    pyproject_text = PYPROJECT_PATH.read_text()
+    pyproject_toml = parse_toml(pyproject_text)
+
+    extras = pyproject_toml['project']['optional-dependencies']
+    hidden_extras = {}
+
+    # Remove hidden and locked extras so they don't muck up the lockfile during generation/upgrade
+    for hidden_extra in HIDDEN_EXTRAS:
+        # We will restore these later and need to use them as exceptions to lockfile verification
+        hidden_extras[hidden_extra] = extras.pop(hidden_extra)
+    for lock_name in LOCK_EXTRAS:
+        extras.pop(lock_name, None)
+
+    # Write a pyproject.toml that will only be used to generate/upgrade the lockfile
+    modify_and_write_pyproject(pyproject_text, table_name=EXTRAS_TABLE, table=extras)
+
+    # Generate/upgrade lockfile
+    run_process('uv', 'lock', upgrade_arg)
+    lockfile = parse_toml(LOCKFILE_PATH.read_text())
+
+    # Write a pyproject.toml with hidden extras restored for bundle requirements generation/updating
+    extras.update(hidden_extras)
+    modify_and_write_pyproject(pyproject_text, table_name=EXTRAS_TABLE, table=extras)
+
+    # Begin bundle requirements generation
     with contextlib.closing(urllib.request.urlopen(PYINSTALLER_BUILDS_URL)) as resp:
         info = json.load(resp)
 
@@ -183,10 +327,11 @@ def main():
         base_requirements_path.write_text(f'pyinstaller=={pyinstaller_version}\n')
         pyinstaller_builds_deps = run_pip_compile(
             target.platform, target.version, base_requirements_path,
-            '--no-emit-package=pyinstaller').stdout
+            '--no-emit-package=pyinstaller', upgrade_arg).stdout
         requirements_path = REQUIREMENTS_PATH / OUTPUT_TMPL.format(target_suffix)
         requirements_path.write_text(PYINSTALLER_BUILDS_TMPL.format(
             pyinstaller_builds_deps, asset_info['browser_download_url'], asset_info['digest']))
+        verify_against_lockfile(requirements_path, lockfile)
 
     for target_suffix, target in INSTALL_DEPS_TARGETS.items():
         requirements_input_path = REQUIREMENTS_PATH / INPUT_TMPL.format(target_suffix)
@@ -194,21 +339,62 @@ def main():
             requirements_input_path,
             *itertools.chain.from_iterable(itertools.product(['--include-extra'], target.extras)),
             *itertools.chain.from_iterable(itertools.product(['--include-group'], target.groups)))
+        requirements_path = REQUIREMENTS_PATH / OUTPUT_TMPL.format(target_suffix)
         run_pip_compile(
-            target.platform, target.version, requirements_input_path, *target.compile_args,
-            f'--output-file={REQUIREMENTS_PATH / OUTPUT_TMPL.format(target_suffix)}')
+            target.platform, target.version, requirements_input_path,
+            upgrade_arg, *target.compile_args, f'--output-file={requirements_path}')
+        verify_against_lockfile(requirements_path, lockfile, hidden_extras)
 
     pypi_input_path = REQUIREMENTS_PATH / INPUT_TMPL.format('pypi-build')
     write_requirements_input(pypi_input_path, '--include-group', 'build')
+    requirements_path = REQUIREMENTS_PATH / OUTPUT_TMPL.format('pypi-build')
     run_pip_compile(
         'linux', LINUX_GNU_PYTHON_VERSION, pypi_input_path,
-        f'--output-file={REQUIREMENTS_PATH / OUTPUT_TMPL.format("pypi-build")}')
+        upgrade_arg, f'--output-file={requirements_path}')
+    verify_against_lockfile(requirements_path, lockfile)
 
     pip_input_path = REQUIREMENTS_PATH / INPUT_TMPL.format('pip')
-    write_requirements_input(pip_input_path, '--include-group', 'build', '--cherry-pick', 'pip')
+    pip_input_path.write_text('pip\n')
+    requirements_path = REQUIREMENTS_PATH / OUTPUT_TMPL.format('pip')
     run_pip_compile(
         'windows', WINDOWS_INTEL_PYTHON_VERSION, pip_input_path,
-        f'--output-file={REQUIREMENTS_PATH / OUTPUT_TMPL.format("pip")}')
+        upgrade_arg, f'--output-file={requirements_path}')
+    verify_against_lockfile(requirements_path, lockfile)
+    # End bundle requirements generation
+
+    # Generate locked extras
+    for lock_name, extra_name in LOCK_EXTRAS.items():
+        lock_extra = extras[lock_name] = []
+        write_requirements_input(TEMP_INPUT_PATH, '--include-extra', extra_name)
+        compiled_extra = run_pip_compile_universal(TEMP_INPUT_PATH, upgrade_arg).stdout
+        for line in compiled_extra.splitlines():
+            package_name, pinned_version, markers = parse_dependency(line)
+            assert package_name, f'missing package name when generating the "{lock_name}" extra'
+            lock_package = next(pkg for pkg in lockfile['package'] if pkg['name'] == package_name)
+            lock_version = lock_package['version']
+            assertion_msg = f'version mismatch for {package_name}: {lock_version} != {pinned_version}'
+            assert lock_version == pinned_version, assertion_msg
+            wheels = lock_package['wheels']
+            assert wheels, f'lockfile wheels list is empty for {package_name} in "{lock_name}"'
+            # If there are platform-specific wheels, then the best we can do is pin to exact version
+            if len(lock_package['wheels']) > 1:
+                lock_extra.append(line)
+                continue
+            # If there's a single 'none-any' wheel then we pin to the PyPI URL and add the hash
+            wheel_url = wheels[0]['url']
+            algo, _, digest = wheels[0]['hash'].partition(':')
+            lock_line = f'{package_name} @ {wheel_url}#{algo}={digest}'
+            lock_extra.append(' ; '.join(filter(None, (lock_line, markers))))
+
+    # Write the finalized pyproject.toml
+    modify_and_write_pyproject(pyproject_text, table_name=EXTRAS_TABLE, table=extras)
+
+
+def main():
+    upgrade_only = None
+    if len(sys.argv) > 1:
+        upgrade_only = sys.argv[1]
+    update_requirements(upgrade_only=upgrade_only)
 
 
 if __name__ == '__main__':

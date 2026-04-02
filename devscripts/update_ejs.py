@@ -11,11 +11,10 @@ import json
 import hashlib
 import pathlib
 
+from devscripts.update_bundle_requirements import update_requirements
 from devscripts.utils import (
     list_wheel_contents,
     request,
-    requirements_needs_update,
-    requirements_update,
 )
 
 
@@ -43,7 +42,6 @@ ASSETS = {
     'yt.solver.core.js': True,
 }
 MAKEFILE_PATH = BASE_PATH / 'Makefile'
-REQUIREMENTS_PATH = BASE_PATH / 'bundle/requirements'
 
 
 def ejs_makefile_variables(
@@ -97,16 +95,10 @@ def main():
 
     print(f'Updating {PACKAGE_NAME} from {current_version} to {version}')
     hashes = []
-    requirements_hashes = []
     wheel_info = {}
     for asset in info['assets']:
         name = asset['name']
         digest = asset['digest']
-
-        # Is it the source distribution? If so, we only need its hash for the requirements files
-        if name == f'{LIBRARY_NAME}-{version}.tar.gz':
-            requirements_hashes.append(digest)
-            continue
 
         is_wheel = name.startswith(f'{LIBRARY_NAME}-') and name.endswith('.whl')
         if not is_wheel and name not in ASSETS:
@@ -121,7 +113,6 @@ def main():
         assert hexdigest == expected, f'downloaded attest mismatch ({hexdigest!r} != {expected!r})'
 
         if is_wheel:
-            requirements_hashes.append(digest)
             wheel_info = ejs_makefile_variables(version, name, digest, data)
             continue
 
@@ -136,8 +127,6 @@ def main():
     for asset_name in ASSETS:
         assert asset_name in hash_mapping, f'{asset_name} not found in release'
 
-    hash_count = len(requirements_hashes)
-    assert hash_count == 2, f'2 requirements hashes expected, but {hash_count} hash(es) were found'
     assert all(wheel_info.get(key) for key in makefile_info), 'wheel info not found in release'
 
     (PACKAGE_PATH / '_info.py').write_text(TEMPLATE.format(
@@ -154,11 +143,7 @@ def main():
         makefile = makefile.replace(f'{key} = {makefile_info[key]}', f'{key} = {wheel_info[key]}')
     MAKEFILE_PATH.write_text(makefile)
 
-    for req in REQUIREMENTS_PATH.glob('requirements-*.txt'):
-        lines = req.read_text().splitlines(True)
-        if requirements_needs_update(lines, PACKAGE_NAME, version):
-            with req.open(mode='w') as f:
-                f.writelines(requirements_update(lines, PACKAGE_NAME, version, requirements_hashes))
+    update_requirements(upgrade_only=PACKAGE_NAME)
 
 
 if __name__ == '__main__':

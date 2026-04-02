@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import collections.abc
 import contextlib
 import datetime as dt
 import functools
@@ -106,54 +105,3 @@ def list_wheel_contents(
         return ' '.join(folders_list)
 
     return ' '.join(folders_list + files_list)
-
-
-def requirements_needs_update(
-    lines: collections.abc.Iterable[str],
-    package: str,
-    version: str,
-):
-    identifier = f'{package}=='
-    for line in lines:
-        if line.startswith(identifier):
-            return not line.removeprefix(identifier).startswith(version)
-
-    return False
-
-
-def requirements_update(
-    lines: collections.abc.Iterable[str],
-    package: str,
-    new_version: str,
-    new_hashes: list[str],
-):
-    first_comment = True
-    current = []
-    for line in lines:
-        if not line.endswith('\n'):
-            line += '\n'
-
-        if first_comment:
-            comment_line = line.strip()
-            if comment_line.startswith('#'):
-                yield line
-                continue
-
-            first_comment = False
-            yield f'# It was later updated using devscripts/update_{package.removeprefix("yt-dlp-")}.py\n'
-
-        current.append(line)
-        if line.endswith('\\\n'):
-            # continue logical line
-            continue
-
-        if not current[0].startswith(f'{package}=='):
-            yield from current
-
-        else:
-            yield f'{package}=={new_version} \\\n'
-            for digest in new_hashes[:-1]:
-                yield f'    --hash={digest} \\\n'
-            yield f'    --hash={new_hashes[-1]}\n'
-
-        current.clear()

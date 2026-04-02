@@ -25,7 +25,8 @@ from devscripts.utils import run_process
 BASE_PATH = pathlib.Path(__file__).parent.parent
 PYPROJECT_PATH = BASE_PATH / 'pyproject.toml'
 LOCKFILE_PATH = BASE_PATH / 'uv.lock'
-TEMP_INPUT_PATH = BASE_PATH / 'build/requirements.in'
+TEMP_DIR_PATH = BASE_PATH / 'build'
+TEMP_INPUT_PATH = TEMP_DIR_PATH / 'requirements.in'
 REQUIREMENTS_PATH = BASE_PATH / 'bundle/requirements'
 INPUT_TMPL = 'requirements-{}.in'
 OUTPUT_TMPL = 'requirements-{}.txt'
@@ -366,6 +367,7 @@ def update_requirements(upgrade_only: str | None = None):
     # End bundle requirements generation
 
     # Generate locked extras
+    TEMP_DIR_PATH.mkdir(exist_ok=True)
     for lock_name, extra_name in LOCK_EXTRAS.items():
         lock_extra = extras[lock_name] = []
         write_requirements_input(TEMP_INPUT_PATH, '--include-extra', extra_name)

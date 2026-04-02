@@ -223,7 +223,7 @@ class SabrStream:
     @url.setter
     def url(self, url):
         validate_sabr_url(url)
-        if self.processor.is_live and hasattr(self, '_url'):
+        if hasattr(self, '_url'):
             self._process_broadcast_id(broadcast_id_from_url(url))
         self._url = url
         if str_or_none(parse_qs(url).get('source', [None])[0]) in ('yt_live_broadcast', 'yt_premiere_broadcast'):
@@ -235,7 +235,7 @@ class SabrStream:
 
     def _process_broadcast_id(self, bid: str | None):
         # Validate a retrieved broadcast ID matches what this stream expects
-        if bid is None or self.broadcast_id is None:
+        if not self.processor.is_live or bid is None or self.broadcast_id is None:
             return
 
         if bid != self.broadcast_id:

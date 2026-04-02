@@ -43,6 +43,7 @@ class SabrFDFormatWriter:
         self._downloaded_bytes = 0
         self._state = {}
         self._format_id = None
+        self._broadcast_id = None
 
         self.file = DiskFormatIOBackend(
             fd=self.fd,
@@ -66,10 +67,11 @@ class SabrFDFormatWriter:
             sequence.current_length for sequence in self._sequence_files)
             + (self._init_sequence.current_length if self._init_sequence else 0))
 
-    def initialize_format(self, format_id):
+    def initialize_format(self, format_id, broadcast_id=None):
         if self._format_id:
             raise ValueError('Already initialized')
         self._format_id = format_id
+        self._broadcast_id = broadcast_id
 
         if not self.resume:
             if self._sabr_state_file.exists:
@@ -262,18 +264,27 @@ class SabrFDFormatWriter:
                 self.fd.report_warning(
                     f'Corrupted state file for format {self.info_dict.get("format_id")}, restarting download')
 
-        if sabr_state and sabr_state.format_id != self._format_id:
-            self.fd.report_warning(
-                f'Format ID mismatch in state file for {self.info_dict.get("format_id")}, restarting download')
-            sabr_state = None
+        if sabr_state:
+            if sabr_state.format_id != self._format_id:
+                self.fd.report_warning(
+                    f'Format ID mismatch in state file for format {self.info_dict.get("format_id")}, restarting download')
+                sabr_state = None
+            elif sabr_state.broadcast_id != self._broadcast_id:
+                self.fd.report_warning(
+                    f'Broadcast ID mismatch in state file for format {self.info_dict.get("format_id")}, restarting download '
+                    f'(expected {self._broadcast_id}, got {sabr_state.broadcast_id}).')
+                sabr_state = None
 
         if not sabr_state:
-            sabr_state = SabrState(format_id=self._format_id)
+            sabr_state = self._new_sabr_state()
 
         return sabr_state
 
+    def _new_sabr_state(self):
+        return SabrState(format_id=self._format_id, broadcast_id=self._broadcast_id)
+
     def _write_sabr_state(self):
-        sabr_state = SabrState(format_id=self._format_id)
+        sabr_state = self._new_sabr_state()
 
         if not self._init_sequence:
             sabr_state.init_segment = None

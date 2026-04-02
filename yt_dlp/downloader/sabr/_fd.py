@@ -311,7 +311,7 @@ class SabrFD(FileDownloader):
                         self.report_warning(f'Unknown format selector: {part.format_selector}')
                         continue
 
-                    writer.initialize_format(part.format_id)
+                    writer.initialize_format(part.format_id, stream.broadcast_id if stream.processor.is_live else None)
                     initialized_format = stream.processor.initialized_formats[str(part.format_id)]
                     if writer.state.init_sequence:
                         initialized_format.init_segment = True

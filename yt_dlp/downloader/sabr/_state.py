@@ -34,6 +34,7 @@ class SabrState:
     format_id: FormatId = protobug.field(1)
     init_segment: SabrStateInitSegment | None = protobug.field(2, default=None)
     sequences: list[SabrStateSequence] = protobug.field(3, default_factory=list)
+    broadcast_id: protobug.String | None = protobug.field(4, default=None)
 
 
 class SabrStateFile:

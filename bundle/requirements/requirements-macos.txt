@@ -6,7 +6,7 @@ altgraph==0.17.5 \
     # via
     #   macholib
     #   pyinstaller
-brotli==1.2.0 ; implementation_name == 'cpython' \
+brotli==1.2.0 ; implementation_name == 'cpython' and sys_platform != 'ios' \
     --hash=sha256:022426c9e99fd65d9475dce5c195526f04bb8be8907607e27e747893f6ee3e24 \
     --hash=sha256:072e7624b1fc4d601036ab3f4f27942ef772887e876beff0301d261210bca97f \
     --hash=sha256:09ac247501d1909e9ee47d309be760c89c990defbb2e0240845c892ea5ff0de4 \
@@ -246,7 +246,7 @@ charset-normalizer==3.4.6 \
     --hash=sha256:f98059e4fcd3e3e4e2d632b7cf81c2faae96c43c60b569e9c621468082f1d104 \
     --hash=sha256:fcce033e4021347d80ed9c66dcf1e7b1546319834b74445f561d2e2221de5659
     # via requests
-delocate==0.11.0 \
+delocate==0.11.0 ; sys_platform == 'darwin' \
     --hash=sha256:55558ddfb3e685ee6b5cacfef05f0e5a07d3ec92b04db30fc1aab608364f4fd5 \
     --hash=sha256:63b0b66467c11fa096aa3179b84d9cef1ab6dc6b0bee78bd7d5dd15814776515
     # via -r bundle/requirements/requirements-macos.in
@@ -254,7 +254,7 @@ idna==3.11 \
     --hash=sha256:771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea \
     --hash=sha256:795dafcc9c04ed0c1fb032c2aa73654d8e8c5023a7df64a53f39190ada629902
     # via requests
-macholib==1.16.4 \
+macholib==1.16.4 ; sys_platform == 'darwin' \
     --hash=sha256:da1a3fa8266e30f0ce7e97c6a54eefaae8edd1e5f86f3eb8b95457cae90265ea \
     --hash=sha256:f408c93ab2e995cd2c46e34fe328b130404be143469e41bc366c807448979362
     # via
@@ -346,7 +346,7 @@ setuptools==82.0.1 \
     # via
     #   pyinstaller
     #   pyinstaller-hooks-contrib
-typing-extensions==4.15.0 \
+typing-extensions==4.15.0 ; sys_platform == 'darwin' \
     --hash=sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466 \
     --hash=sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548
     # via delocate

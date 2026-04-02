@@ -69,6 +69,37 @@ deno = [
 curl-cffi-compat = [
     "curl-cffi==0.13.0 ; implementation_name != 'PyPy'",
 ]
+lock = [
+    "brotli==1.2.0 ; implementation_name == 'cpython' and sys_platform != 'ios'",
+    "brotlicffi==1.2.0.1 ; implementation_name != 'cpython'",
+    "certifi @ https://files.pythonhosted.org/packages/9a/3c/c17fb3ca2d9c3acff52e30b309f538586f9f5b9c9cf454f3845fc9af4881/certifi-2026.2.25-py3-none-any.whl#sha256=027692e4402ad994f1c42e52a4997a9763c646b73e4096e4d5d6db8af1d6f0fa",
+    "cffi==2.0.0 ; implementation_name != 'cpython'",
+    "charset-normalizer==3.4.6",
+    "idna @ https://files.pythonhosted.org/packages/0e/61/66938bbb5fc52dbdf84594873d5b51fb1f7c7794e9c0f5bd885f30bc507b/idna-3.11-py3-none-any.whl#sha256=771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea",
+    "mutagen @ https://files.pythonhosted.org/packages/b0/7a/620f945b96be1f6ee357d211d5bf74ab1b7fe72a9f1525aafbfe3aee6875/mutagen-1.47.0-py3-none-any.whl#sha256=edd96f50c5907a9539d8e5bba7245f62c9f520aef333d13392a79a4f70aca719",
+    "pycparser @ https://files.pythonhosted.org/packages/0c/c3/44f3fbbfa403ea2a7c779186dc20772604442dde72947e7d01069cbe98e3/pycparser-3.0-py3-none-any.whl#sha256=b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992 ; implementation_name != 'PyPy' and implementation_name != 'cpython'",
+    "pycryptodomex==3.23.0",
+    "requests @ https://files.pythonhosted.org/packages/56/5d/c814546c2333ceea4ba42262d8c4d55763003e767fa169adc693bd524478/requests-2.33.0-py3-none-any.whl#sha256=3324635456fa185245e24865e810cecec7b4caf933d7eb133dcde67d48cee69b",
+    "urllib3 @ https://files.pythonhosted.org/packages/39/08/aaaad47bc4e9dc8c725e68f9d04865dbcb2052843ff09c97b08904852d84/urllib3-2.6.3-py3-none-any.whl#sha256=bf272323e553dfb2e87d9bfd225ca7b0f467b919d7bbd355436d3fd37cb0acd4",
+    "websockets==16.0",
+    "yt-dlp-ejs @ https://files.pythonhosted.org/packages/e3/bd/520769863744b669440a924271a6159ddd82ad5ae26b4ac4d4b69e9f8d44/yt_dlp_ejs-0.8.0-py3-none-any.whl#sha256=79300e5fca7f937a1eeede11f0456862c1b41107ce1d726871e0207424f4bdb4",
+]
+curl-cffi-lock = [
+    "certifi @ https://files.pythonhosted.org/packages/9a/3c/c17fb3ca2d9c3acff52e30b309f538586f9f5b9c9cf454f3845fc9af4881/certifi-2026.2.25-py3-none-any.whl#sha256=027692e4402ad994f1c42e52a4997a9763c646b73e4096e4d5d6db8af1d6f0fa ; implementation_name == 'cpython'",
+    "cffi==2.0.0 ; implementation_name == 'cpython'",
+    "curl-cffi==0.14.0 ; implementation_name == 'cpython'",
+    "pycparser @ https://files.pythonhosted.org/packages/0c/c3/44f3fbbfa403ea2a7c779186dc20772604442dde72947e7d01069cbe98e3/pycparser-3.0-py3-none-any.whl#sha256=b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992 ; implementation_name == 'cpython'",
+]
+secretstorage-lock = [
+    "cffi==2.0.0 ; platform_python_implementation != 'PyPy'",
+    "cryptography==46.0.6",
+    "jeepney @ https://files.pythonhosted.org/packages/b2/a3/e137168c9c44d18eff0376253da9f1e9234d0239e0ee230d2fee6cea8e55/jeepney-0.9.0-py3-none-any.whl#sha256=97e5714520c16fc0a45695e5365a2e11b81ea79bba796e26f9f1d178cb182683",
+    "pycparser @ https://files.pythonhosted.org/packages/0c/c3/44f3fbbfa403ea2a7c779186dc20772604442dde72947e7d01069cbe98e3/pycparser-3.0-py3-none-any.whl#sha256=b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'",
+    "secretstorage @ https://files.pythonhosted.org/packages/b7/46/f5af3402b579fd5e11573ce652019a67074317e18c1935cc0b4ba9b35552/secretstorage-3.5.0-py3-none-any.whl#sha256=0ce65888c0725fcb2c5bc0fdb8e5438eece02c523557ea40ce0703c266248137",
+]
+deno-lock = [
+    "deno==2.7.8",
+]
 
 [dependency-groups]
 build = [

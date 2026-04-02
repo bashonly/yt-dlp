@@ -31,5 +31,5 @@ setuptools==82.0.1 \
 
 # The following packages were excluded from the output:
 # pyinstaller
-pyinstaller@https://github.com/yt-dlp/Pyinstaller-Builds/releases/download/2026.03.17.175201/pyinstaller-6.19.0-py3-none-win_arm64.whl \
+pyinstaller @ https://github.com/yt-dlp/Pyinstaller-Builds/releases/download/2026.03.17.175201/pyinstaller-6.19.0-py3-none-win_arm64.whl \
     --hash=sha256:d008e5c8bb2143f7c05c8b5fcc15dab5f079d79425f78af1936c6768f8e87504

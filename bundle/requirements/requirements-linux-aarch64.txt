@@ -4,7 +4,7 @@ altgraph==0.17.5 \
     --hash=sha256:c87b395dd12fabde9c99573a9749d67da8d29ef9de0125c7f536699b4a9bc9e7 \
     --hash=sha256:f3a22400bce1b0c701683820ac4f3b159cd301acab067c51c653e06961600597
     # via pyinstaller
-brotli==1.2.0 ; implementation_name == 'cpython' \
+brotli==1.2.0 ; implementation_name == 'cpython' and sys_platform != 'ios' \
     --hash=sha256:022426c9e99fd65d9475dce5c195526f04bb8be8907607e27e747893f6ee3e24 \
     --hash=sha256:072e7624b1fc4d601036ab3f4f27942ef772887e876beff0301d261210bca97f \
     --hash=sha256:09ac247501d1909e9ee47d309be760c89c990defbb2e0240845c892ea5ff0de4 \
@@ -113,7 +113,7 @@ certifi==2026.2.25 \
     #   -r bundle/requirements/requirements-linux-aarch64.in
     #   curl-cffi
     #   requests
-cffi==2.0.0 \
+cffi==2.0.0 ; implementation_name != 'PyPy' or platform_python_implementation != 'PyPy' \
     --hash=sha256:00bdf7acc5f795150faa6957054fbbca2439db2f775ce831222b66f192f03beb \
     --hash=sha256:07b271772c100085dd28b74fa0cd81c8fb1a3ba18b21e03d7c27f3436a10606b \
     --hash=sha256:087067fa8953339c723661eda6b54bc98c5625757ea62e95eb4898ad5e776e9f \
@@ -383,7 +383,7 @@ cryptography==46.0.6 \
     --hash=sha256:ed3775295fb91f70b4027aeba878d79b3e55c0b3e97eaa4de71f8f23a9f2eb77 \
     --hash=sha256:ed418c37d095aeddf5336898a132fba01091f0ac5844e3e8018506f014b6d2c4
     # via secretstorage
-curl-cffi==0.13.0 \
+curl-cffi==0.13.0 ; implementation_name != 'PyPy' \
     --hash=sha256:28911b526e8cd4aa0e5e38401bfe6887e8093907272f1f67ca22e6beb2933a51 \
     --hash=sha256:434cadbe8df2f08b2fc2c16dff2779fb40b984af99c06aa700af898e185bb9db \
     --hash=sha256:59afa877a9ae09efa04646a7d068eeea48915a95d9add0a29854e7781679fcd7 \

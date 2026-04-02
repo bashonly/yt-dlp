@@ -239,6 +239,9 @@ def verify_against_lockfile(
             package, version, _ = parse_dependency(line.rstrip().removesuffix('\\').rstrip())
             if (package, version) in exceptions:
                 continue
+            # We don't keep pip in any extras/groups
+            if package == 'pip':
+                continue
             lock_package = next(pkg for pkg in lockfile['package'] if pkg['name'] == package)
             lock_version = lock_package['version']
             assert version == lock_version, f'version mismatch for {package}: {version} != {lock_version}'

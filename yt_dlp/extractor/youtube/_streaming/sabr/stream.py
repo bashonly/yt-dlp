@@ -564,7 +564,14 @@ class SabrStream:
             return
 
         # 2. If the format is seeking, skip as player time should not progress while seeking
-        if any(izf.seek_ms is not None for izf in self._active_initialized_formats()):
+        # NOTE: excluding if seek_ms is within a consumed range chain for the initialized format,
+        #  otherwise stream can get stuck in some circumstances
+        live_tolerance_ms = self.processor.live_segment_target_duration_tolerance_ms if self.processor.is_live else 0
+        if any(
+            izf.seek_ms is not None
+            and not find_consumed_range_by_time(izf.seek_ms, izf.consumed_ranges, live_tolerance_ms)
+            for izf in self._active_initialized_formats()
+        ):
             self.logger.debug(
                 'Skipping player time increment; one or more initialized formats are currently seeking')
             return

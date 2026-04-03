@@ -728,6 +728,7 @@ class LiveAVProfile(BasicAudioVideoProfile):
         )
 
     def next_segment(self, buffered_segments: set[int], player_time_ms: int) -> int | None:
+        segment_buffer_window_offset = self.options.get('segment_buffer_window_offset', 0)
         for sequence_number in range(self.start_segment_number, self.last_segment_number + 1):
             if sequence_number in buffered_segments:
                 continue
@@ -736,7 +737,10 @@ class LiveAVProfile(BasicAudioVideoProfile):
 
             # Basic server-side buffering logic to determine if the segment should be included
             # If not within 1 target segment of this segment, skip
-            if (player_time_ms < start_ms - self.segment_target_duration_ms) or (player_time_ms > start_ms + self.segment_target_duration_ms):
+            if (
+                (player_time_ms < start_ms - self.segment_target_duration_ms + segment_buffer_window_offset)
+                or (player_time_ms > start_ms + self.segment_target_duration_ms - segment_buffer_window_offset)
+            ):
                 continue
 
             # If this segment is equal to greater than the live head, skip (unless live head is the last segment and elapsed time indicates it should be available)

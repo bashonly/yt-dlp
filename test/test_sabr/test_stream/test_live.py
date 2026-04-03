@@ -1923,9 +1923,6 @@ class TestLive:
         segment_target_duration_ms = 2000
         dvr_segments = 9
         seek_ms = 0
-        # from yt_dlp.downloader.sabr._logger import SabrFDLogger
-        # from yt_dlp import YoutubeDL
-        # logger = SabrFDLogger(ydl=YoutubeDL({'verbose': True}), prefix='live', log_level=SabrFDLogger.LogLevel.TRACE)
 
         def seeking_format_func(parts, vpabr, url, request_number):
             if request_number == 1:
@@ -2688,7 +2685,6 @@ class TestLiveEndErrorRetriesExhausted:
         # - NO live metadata available (so cannot determine if near head or not)
         # - heartbeat indicates stream is not live
         # - all formats have been initialized
-        # logger = SabrFDLogger(ydl=YoutubeDL({'verbose': True}), prefix='live', log_level=SabrFDLogger.LogLevel.TRACE)
         total_segments = 10
         segment_target_duration_ms = 2000
         dvr_segments = 9

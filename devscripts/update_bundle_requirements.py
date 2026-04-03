@@ -212,10 +212,36 @@ def modify_and_write_pyproject(
         f.writelines(replace_table_in_pyproject(pyproject_text, table_name, table))
 
 
-def parse_dependency(line: str) -> tuple[str, str, str]:
-    package_name, _, rest = line.partition('==')
-    pinned_version, _, markers = rest.partition(';')
-    return package_name, pinned_version.rstrip(), markers.strip()
+@dataclasses.dataclass
+class Dependency:
+    name: str
+    direct_reference: str | None
+    version: str | None
+    markers: str | None
+
+
+def parse_dependency(line: str, comp_op: str = '==') -> Dependency:
+    line = line.rstrip().removesuffix('\\')
+    before, sep, after = map(str.strip, line.partition('@'))
+    name, _, version_and_markers = map(str.strip, before.partition(comp_op))
+    assertion_msg = f'unable to parse Dependency from line:\n    {line}'
+    assert name, assertion_msg
+
+    if sep:
+        # Direct reference
+        version = version_and_markers
+        direct_reference, _, markers = map(str.strip, after.partition(';'))
+        assert direct_reference, assertion_msg
+    else:
+        # No direct reference
+        direct_reference = None
+        version, _, markers = map(str.strip, version_and_markers.partition(';'))
+
+    return Dependency(
+        name=name,
+        direct_reference=direct_reference,
+        version=version or None,
+        markers=markers or None)
 
 
 def verify_against_lockfile(
@@ -223,27 +249,26 @@ def verify_against_lockfile(
     lockfile: dict[str, typing.Any],
     hidden_extras: dict[str, list[tuple[str, str, str]]] | None = None,
 ) -> None:
+    # Hidden extras have older version pins for compatibility; make exceptions for these
     exceptions = [
-        # Ignore markers; only check against package name and version
-        parse_dependency(dep)[:2] for dep in itertools.chain.from_iterable(hidden_extras.values())
+        parse_dependency(dep).name for dep in itertools.chain.from_iterable(hidden_extras.values())
     ] if hidden_extras else []
+    # We don't keep pip in any extras/groups
+    exceptions.append('pip')
 
     with requirements_path.open() as f:
         for line in f:
             if line.lstrip().startswith(('--hash=', '#')) or not line.strip():
                 continue
+            dep = parse_dependency(line)
             # Ignore packages pinned to URL
-            if line.partition('@')[2].lstrip().startswith('https://'):
+            if dep.direct_reference:
                 continue
-            package, version, _ = parse_dependency(line.rstrip().removesuffix('\\').rstrip())
-            if (package, version) in exceptions:
+            if dep.name in exceptions:
                 continue
-            # We don't keep pip in any extras/groups
-            if package == 'pip':
-                continue
-            lock_package = next(pkg for pkg in lockfile['package'] if pkg['name'] == package)
-            lock_version = lock_package['version']
-            assert version == lock_version, f'version mismatch for {package}: {version} != {lock_version}'
+            lock_package = next(pkg for pkg in lockfile['package'] if pkg['name'] == dep.name)
+            lv = lock_package['version']
+            assert dep.version == lv, f'version mismatch for {dep.name}: {dep.version} != {lv}'
 
 
 def write_requirements_input(filepath: pathlib.Path, *args: str) -> None:
@@ -371,14 +396,12 @@ def update_requirements(upgrade_only: str | None = None):
         write_requirements_input(TEMP_INPUT_PATH, '--include-extra', extra_name)
         compiled_extra = run_pip_compile_universal(TEMP_INPUT_PATH, upgrade_arg).stdout
         for line in compiled_extra.splitlines():
-            package_name, pinned_version, markers = parse_dependency(line)
-            assert package_name, f'missing package name when generating the "{lock_name}" extra'
-            lock_package = next(pkg for pkg in lockfile['package'] if pkg['name'] == package_name)
-            lock_version = lock_package['version']
-            assertion_msg = f'version mismatch for {package_name}: {lock_version} != {pinned_version}'
-            assert lock_version == pinned_version, assertion_msg
+            dep = parse_dependency(line)
+            lock_package = next(pkg for pkg in lockfile['package'] if pkg['name'] == dep.name)
+            lv = lock_package['version']
+            assert lv == dep.version, f'version mismatch for {dep.name}: {lv} != {dep.version}'
             wheels = lock_package['wheels']
-            assert wheels, f'lockfile wheels list is empty for {package_name} in "{lock_name}"'
+            assert wheels, f'lockfile wheels list is empty for {dep.name} in "{lock_name}"'
             # If there are platform-specific wheels, then the best we can do is pin to exact version
             if len(wheels) > 1:
                 lock_extra.append(line)
@@ -386,8 +409,8 @@ def update_requirements(upgrade_only: str | None = None):
             # If there's a single 'none-any' wheel then we pin to the PyPI URL and add the hash
             wheel_url = wheels[0]['url']
             algo, _, digest = wheels[0]['hash'].partition(':')
-            lock_line = f'{package_name} @ {wheel_url}#{algo}={digest}'
-            lock_extra.append(' ; '.join(filter(None, (lock_line, markers))))
+            lock_line = f'{dep.name} @ {wheel_url}#{algo}={digest}'
+            lock_extra.append(' ; '.join(filter(None, (lock_line, dep.markers))))
 
     # Write the finalized pyproject.toml
     modify_and_write_pyproject(pyproject_text, table_name=EXTRAS_TABLE, table=extras)

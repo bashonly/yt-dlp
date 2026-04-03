@@ -32,8 +32,6 @@ INPUT_TMPL = 'requirements-{}.in'
 OUTPUT_TMPL = 'requirements-{}.txt'
 CUSTOM_COMPILE_COMMAND = 'python -m devscripts.update_bundle_requirements'
 
-COOLDOWN_EXCEPTIONS = ('protobug', 'yt-dlp-ejs')
-
 LINUX_GNU_PYTHON_VERSION = '3.13'
 LINUX_MUSL_PYTHON_VERISON = '3.14'
 WINDOWS_INTEL_PYTHON_VERSION = '3.10'
@@ -382,7 +380,7 @@ def update_requirements(upgrade_only: str | None = None):
             wheels = lock_package['wheels']
             assert wheels, f'lockfile wheels list is empty for {package_name} in "{lock_name}"'
             # If there are platform-specific wheels, then the best we can do is pin to exact version
-            if len(lock_package['wheels']) > 1:
+            if len(wheels) > 1:
                 lock_extra.append(line)
                 continue
             # If there's a single 'none-any' wheel then we pin to the PyPI URL and add the hash

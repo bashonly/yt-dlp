@@ -11,7 +11,7 @@ import json
 import hashlib
 import pathlib
 
-from devscripts.update_bundle_requirements import update_requirements
+from devscripts.update_requirements import update_requirements
 from devscripts.utils import (
     list_wheel_contents,
     request,

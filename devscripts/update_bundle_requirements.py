@@ -26,7 +26,7 @@ PYPROJECT_PATH = BASE_PATH / 'pyproject.toml'
 LOCKFILE_PATH = BASE_PATH / 'uv.lock'
 REQUIREMENTS_PATH = BASE_PATH / 'bundle/requirements'
 OUTPUT_TMPL = 'requirements-{}.txt'
-CUSTOM_COMPILE_COMMAND = 'python -m devscripts.update_bundle_requirements'
+CUSTOM_COMPILE_COMMAND = 'python -m devscripts.update_requirements'
 
 LINUX_GNU_PYTHON_VERSION = '3.13'
 LINUX_MUSL_PYTHON_VERISON = '3.14'

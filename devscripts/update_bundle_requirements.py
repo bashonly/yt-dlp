@@ -416,11 +416,18 @@ def update_requirements(upgrade_only: str | None = None):
     modify_and_write_pyproject(pyproject_text, table_name=EXTRAS_TABLE, table=extras)
 
 
+def parse_args():
+    import argparse
+    parser = argparse.ArgumentParser(description='Generate/update lockfile and requirements')
+    parser.add_argument(
+        'upgrade_only', nargs='?', metavar='PACKAGE',
+        help='only upgrade this package. (by default, all packages will be upgraded)')
+    return parser.parse_args()
+
+
 def main():
-    upgrade_only = None
-    if len(sys.argv) > 1:
-        upgrade_only = sys.argv[1]
-    update_requirements(upgrade_only=upgrade_only)
+    args = parse_args()
+    update_requirements(upgrade_only=args.upgrade_only)
 
 
 if __name__ == '__main__':

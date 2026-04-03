@@ -14,7 +14,6 @@ import itertools
 import json
 import pathlib
 import re
-import subprocess
 import typing
 import urllib.request
 
@@ -25,10 +24,7 @@ from devscripts.utils import run_process
 BASE_PATH = pathlib.Path(__file__).parent.parent
 PYPROJECT_PATH = BASE_PATH / 'pyproject.toml'
 LOCKFILE_PATH = BASE_PATH / 'uv.lock'
-TEMP_DIR_PATH = BASE_PATH / 'build'
-TEMP_INPUT_PATH = TEMP_DIR_PATH / 'requirements.in'
 REQUIREMENTS_PATH = BASE_PATH / 'bundle/requirements'
-INPUT_TMPL = 'requirements-{}.in'
 OUTPUT_TMPL = 'requirements-{}.txt'
 CUSTOM_COMPILE_COMMAND = 'python -m devscripts.update_bundle_requirements'
 
@@ -271,53 +267,73 @@ def verify_against_lockfile(
             assert dep.version == lv, f'version mismatch for {dep.name}: {dep.version} != {lv}'
 
 
-def write_requirements_input(filepath: pathlib.Path, *args: str) -> None:
-    filepath.write_text(run_process(
-        sys.executable, '-m', 'devscripts.install_deps',
-        '--omit-default', '--print', *args).stdout)
-
-
 def run_pip_compile(
-    python_platform: str,
-    python_version: str,
-    requirements_input_path: pathlib.Path,
     *args: str,
-) -> subprocess.CompletedProcess:
+    extras: list[str] | None = None,
+    groups: list[str] | None = None,
+    single: str | None = None,
+    platform: str | None = None,
+    version: str | None = None,
+    bare: bool = False,
+    output_file: str | None = None,
+) -> str:
+    assert any((single, extras, groups)), 'one of "extras", "groups", or "single" must be passed'
+    assert not single or not (extras or groups), 'only "extras"/"groups" OR "single" can be passed'
+
+    if single:
+        requirements_input = f'{single}\n'
+    else:
+        requirements_input = run_process(
+            sys.executable, '-m', 'devscripts.install_deps',
+            '--omit-default',
+            '--print',
+            *itertools.chain.from_iterable(itertools.product(['--include-extra'], extras or [])),
+            *itertools.chain.from_iterable(itertools.product(['--include-group'], groups or [])),
+        ).stdout
+
+    if bare:
+        # Lock extra
+        pip_compile_args = [
+            *args,
+            '--no-annotate',
+            '--no-header',
+        ]
+    else:
+        # Bundle requirements
+        pip_compile_args = [
+            *args,
+            '--generate-hashes',
+            '--no-strip-markers',
+            f'--custom-compile-command={CUSTOM_COMPILE_COMMAND}',
+        ]
+
+    if platform:
+        pip_compile_args.append(f'--python-platform={platform}')
+    if version:
+        pip_compile_args.append(f'--python-version={version}')
+    if not (platform or version):
+        # Assume universal resolution
+        pip_compile_args.append('--universal')
+
+    if output_file:
+        pip_compile_args.append(f'--output-file={output_file}')
+
     return run_process(
         'uv', 'pip', 'compile',
         '--no-python-downloads',
         '--quiet',
         '--no-progress',
         '--color=never',
-        f'--python-platform={python_platform}',
-        f'--python-version={python_version}',
-        '--generate-hashes',
-        '--no-strip-markers',
-        f'--custom-compile-command={CUSTOM_COMPILE_COMMAND}',
         '--format=requirements.txt',
-        *args, str(requirements_input_path))
-
-
-def run_pip_compile_universal(
-    requirements_input_path: pathlib.Path,
-    *args: str,
-) -> subprocess.CompletedProcess:
-    return run_process(
-        'uv', 'pip', 'compile',
-        '--no-python-downloads',
-        '--quiet',
-        '--no-progress',
-        '--color=never',
-        '--universal',
-        '--no-annotate',
-        '--no-header',
-        '--format=requirements.txt',
-        *args, str(requirements_input_path))
+        *pip_compile_args,
+        '-',  # Read from stdin
+        input=requirements_input,
+    ).stdout
 
 
 def update_requirements(upgrade_only: str | None = None):
     # Are we upgrading all packages or only one (e.g. 'yt-dlp-ejs' or 'protobug')?
-    upgrade_arg = '--upgrade' + (f'-package={upgrade_only}' if upgrade_only else '')
+    upgrade_arg = ''.join(('--upgrade', f'-package={upgrade_only}' if upgrade_only else ''))
 
     pyproject_text = PYPROJECT_PATH.read_text()
     pyproject_toml = parse_toml(pyproject_text)
@@ -350,51 +366,48 @@ def update_requirements(upgrade_only: str | None = None):
     for target_suffix, target in PYINSTALLER_BUILDS_TARGETS.items():
         asset_info = next(asset for asset in info['assets'] if target.asset_tag in asset['name'])
         pyinstaller_version = PYINSTALLER_VERSION_RE.match(asset_info['name']).group('version')
-        base_requirements_path = REQUIREMENTS_PATH / INPUT_TMPL.format(target_suffix)
-        base_requirements_path.write_text(f'pyinstaller=={pyinstaller_version}\n')
         pyinstaller_builds_deps = run_pip_compile(
-            target.platform, target.version, base_requirements_path,
-            '--no-emit-package=pyinstaller', upgrade_arg).stdout
+            '--no-emit-package=pyinstaller',
+            upgrade_arg,
+            single=f'pyinstaller=={pyinstaller_version}',
+            platform=target.platform,
+            version=target.version)
         requirements_path = REQUIREMENTS_PATH / OUTPUT_TMPL.format(target_suffix)
         requirements_path.write_text(PYINSTALLER_BUILDS_TMPL.format(
             pyinstaller_builds_deps, asset_info['browser_download_url'], asset_info['digest']))
         verify_against_lockfile(requirements_path, lockfile)
 
     for target_suffix, target in INSTALL_DEPS_TARGETS.items():
-        requirements_input_path = REQUIREMENTS_PATH / INPUT_TMPL.format(target_suffix)
-        write_requirements_input(
-            requirements_input_path,
-            *itertools.chain.from_iterable(itertools.product(['--include-extra'], target.extras)),
-            *itertools.chain.from_iterable(itertools.product(['--include-group'], target.groups)))
         requirements_path = REQUIREMENTS_PATH / OUTPUT_TMPL.format(target_suffix)
         run_pip_compile(
-            target.platform, target.version, requirements_input_path,
-            upgrade_arg, *target.compile_args, f'--output-file={requirements_path}')
+            *target.compile_args,
+            upgrade_arg,
+            extras=target.extras,
+            groups=target.groups,
+            platform=target.platform,
+            version=target.version,
+            output_file=requirements_path)
         verify_against_lockfile(requirements_path, lockfile, hidden_extras)
 
-    pypi_input_path = REQUIREMENTS_PATH / INPUT_TMPL.format('pypi-build')
-    write_requirements_input(pypi_input_path, '--include-group', 'build')
     requirements_path = REQUIREMENTS_PATH / OUTPUT_TMPL.format('pypi-build')
     run_pip_compile(
-        'linux', LINUX_GNU_PYTHON_VERSION, pypi_input_path,
-        upgrade_arg, f'--output-file={requirements_path}')
+        upgrade_arg,
+        groups=['build'],
+        output_file=requirements_path)
     verify_against_lockfile(requirements_path, lockfile)
 
-    pip_input_path = REQUIREMENTS_PATH / INPUT_TMPL.format('pip')
-    pip_input_path.write_text('pip\n')
     requirements_path = REQUIREMENTS_PATH / OUTPUT_TMPL.format('pip')
     run_pip_compile(
-        'windows', WINDOWS_INTEL_PYTHON_VERSION, pip_input_path,
-        upgrade_arg, f'--output-file={requirements_path}')
+        upgrade_arg,
+        single='pip',
+        output_file=requirements_path)
     verify_against_lockfile(requirements_path, lockfile)
     # End bundle requirements generation
 
     # Generate locked extras
-    TEMP_DIR_PATH.mkdir(exist_ok=True)
     for lock_name, extra_name in LOCK_EXTRAS.items():
         lock_extra = extras[lock_name] = []
-        write_requirements_input(TEMP_INPUT_PATH, '--include-extra', extra_name)
-        compiled_extra = run_pip_compile_universal(TEMP_INPUT_PATH, upgrade_arg).stdout
+        compiled_extra = run_pip_compile(upgrade_arg, extras=[extra_name], bare=True)
         for line in compiled_extra.splitlines():
             dep = parse_dependency(line)
             lock_package = next(pkg for pkg in lockfile['package'] if pkg['name'] == dep.name)

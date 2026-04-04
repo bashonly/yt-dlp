@@ -266,22 +266,21 @@ def update_requirements(upgrade_only: str | None = None):
             pyinstaller_builds_deps, asset_info['browser_download_url'], asset_info['digest']))
 
     for target_suffix, target in INSTALL_DEPS_TARGETS.items():
-        requirements_path = REQUIREMENTS_PATH / OUTPUT_TMPL.format(target_suffix)
         run_uv_export(
             extras=target.extras,
             groups=target.groups,
             prune_packages=target.prune_packages,
             omit_packages=target.omit_packages,
-            output_file=requirements_path)
+            output_file=REQUIREMENTS_PATH / OUTPUT_TMPL.format(target_suffix))
 
-    requirements_path = REQUIREMENTS_PATH / OUTPUT_TMPL.format('pypi-build')
-    run_uv_export(groups=['build'], output_file=requirements_path)
+    run_uv_export(
+        groups=['build'],
+        output_file=REQUIREMENTS_PATH / OUTPUT_TMPL.format('pypi-build'))
 
-    requirements_path = REQUIREMENTS_PATH / OUTPUT_TMPL.format('pip')
     run_pip_compile(
         upgrade_arg,
         input_line='pip',
-        output_file=requirements_path)
+        output_file=REQUIREMENTS_PATH / OUTPUT_TMPL.format('pip'))
 
     # Generate locked extras
     for lock_name, extra_name in LOCK_EXTRAS.items():

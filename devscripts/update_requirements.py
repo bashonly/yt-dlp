@@ -210,15 +210,8 @@ def run_uv_export(
 def run_pip_compile(
     *args: str,
     input_line: str,
-    platform: str | None = None,
-    version: str | None = None,
-    bare: bool = False,
     output_file: pathlib.Path | None = None,
 ) -> str:
-    pip_compile_args = list(args)
-    if output_file:
-        pip_compile_args.append(f'--output-file={output_file}')
-
     return run_process(
         'uv', 'pip', 'compile',
         '--no-python-downloads',
@@ -231,7 +224,8 @@ def run_pip_compile(
         '--no-strip-markers',
         f'--custom-compile-command={CUSTOM_COMPILE_COMMAND}',
         '--universal',
-        *pip_compile_args,
+        *args,
+        *([f'--output-file={output_file.relative_to(BASE_PATH)}'] if output_file else []),
         '-',  # Read from stdin
         input=f'{input_line}\n',
     ).stdout
@@ -315,7 +309,7 @@ def update_requirements(upgrade_only: str | None = None):
 
 def parse_args():
     import argparse
-    parser = argparse.ArgumentParser(description='Generate/update lockfile and requirements')
+    parser = argparse.ArgumentParser(description='generate/update lockfile and requirements')
     parser.add_argument(
         'upgrade_only', nargs='?', metavar='PACKAGE',
         help='only upgrade this package. (by default, all packages will be upgraded)')

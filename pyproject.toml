@@ -122,7 +122,7 @@ dev = [
     {include-group = "test"},
 ]
 pyinstaller = [
-    "pyinstaller>=6.17.0",  # 6.17.0+ needed for compat with setuptools 81+
+    "pyinstaller>=6.17.0",
 ]
 delocate = [
     "delocate ; sys_platform == 'darwin'",

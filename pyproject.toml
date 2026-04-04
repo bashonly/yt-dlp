@@ -66,9 +66,6 @@ secretstorage = [
 deno = [
     "deno>=2.6.6",
 ]
-curl-cffi-compat = [
-    "curl-cffi==0.13.0 ; implementation_name != 'PyPy'",
-]
 lock = [
     "brotli==1.2.0 ; implementation_name == 'cpython' and sys_platform != 'ios'",
     "brotlicffi==1.2.0.1 ; implementation_name != 'cpython'",

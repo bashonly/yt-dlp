@@ -37,8 +37,6 @@ MACOS_PYTHON_VERSION = '3.14'
 EXTRAS_TABLE = 'project.optional-dependencies'
 GROUPS_TABLE = 'dependency-groups'
 
-HIDDEN_EXTRAS = ('curl-cffi-compat',)
-
 LOCK_EXTRAS = {
     'lock': 'default',
     'curl-cffi-lock': 'curl-cffi',
@@ -253,15 +251,7 @@ def parse_dependency(line: str, comp_op: str = '==') -> Dependency:
 def verify_against_lockfile(
     requirements_path: pathlib.Path,
     lockfile: dict[str, typing.Any],
-    hidden_extras: dict[str, list[tuple[str, str, str]]] | None = None,
 ) -> None:
-    # Hidden extras have older version pins for compatibility; make exceptions for these
-    exceptions = [
-        parse_dependency(dep).name for dep in itertools.chain.from_iterable(hidden_extras.values())
-    ] if hidden_extras else []
-    # We don't keep pip in any extras/groups
-    exceptions.append('pip')
-
     with requirements_path.open() as f:
         for line in f:
             if line.lstrip().startswith(('--hash=', '#')) or not line.strip():
@@ -270,7 +260,8 @@ def verify_against_lockfile(
             # Ignore packages pinned to URL
             if dep.direct_reference:
                 continue
-            if dep.name in exceptions:
+            # We don't keep pip in any extras/groups
+            if dep.name == 'pip':
                 continue
             lock_package = next(pkg for pkg in lockfile['package'] if pkg['name'] == dep.name)
             lv = lock_package['version']
@@ -347,27 +338,18 @@ def update_requirements(upgrade_only: str | None = None):
 
     pyproject_text = PYPROJECT_PATH.read_text()
     pyproject_toml = parse_toml(pyproject_text)
-
     extras = pyproject_toml['project']['optional-dependencies']
-    hidden_extras = {}
 
-    # Remove hidden and locked extras so they don't muck up the lockfile during generation/upgrade
-    for hidden_extra in HIDDEN_EXTRAS:
-        # We will restore these later and need to use them as exceptions to lockfile verification
-        hidden_extras[hidden_extra] = extras.pop(hidden_extra)
+    # Remove locked extras so they don't muck up the lockfile during generation/upgrade
     for lock_name in LOCK_EXTRAS:
         extras.pop(lock_name, None)
 
-    # Write a pyproject.toml that will only be used to generate/upgrade the lockfile
+    # Write an intermediate pyproject.toml to use for generating lockfile and bundle requirements
     modify_and_write_pyproject(pyproject_text, table_name=EXTRAS_TABLE, table=extras)
 
     # Generate/upgrade lockfile
     run_process('uv', 'lock', upgrade_arg)
     lockfile = parse_toml(LOCKFILE_PATH.read_text())
-
-    # Write a pyproject.toml with hidden extras restored for bundle requirements generation/updating
-    extras.update(hidden_extras)
-    modify_and_write_pyproject(pyproject_text, table_name=EXTRAS_TABLE, table=extras)
 
     # Begin bundle requirements generation
     with contextlib.closing(urllib.request.urlopen(PYINSTALLER_BUILDS_URL)) as resp:
@@ -397,7 +379,7 @@ def update_requirements(upgrade_only: str | None = None):
             platform=target.platform,
             version=target.version,
             output_file=requirements_path)
-        verify_against_lockfile(requirements_path, lockfile, hidden_extras)
+        verify_against_lockfile(requirements_path, lockfile)
 
     requirements_path = REQUIREMENTS_PATH / OUTPUT_TMPL.format('pypi-build')
     run_pip_compile(

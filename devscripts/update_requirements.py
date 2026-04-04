@@ -53,7 +53,7 @@ WIN64_TARGET = Target(
     extras=['default', 'curl-cffi'],
 )
 
-INSTALL_DEPS_TARGETS = {
+BUNDLE_TARGETS = {
     'linux-x86_64': LINUX_TARGET,
     'linux-aarch64': LINUX_TARGET,
     'linux-armv7l': LINUX_TARGET,
@@ -78,7 +78,6 @@ INSTALL_DEPS_TARGETS = {
         omit_packages=['certifi', 'pycparser'],
     ),
 }
-
 
 PYINSTALLER_BUILDS_TARGETS = {
     'win-x64-pyinstaller': 'win_amd64',
@@ -265,7 +264,7 @@ def update_requirements(upgrade_only: str | None = None):
         requirements_path.write_text(PYINSTALLER_BUILDS_TMPL.format(
             pyinstaller_builds_deps, asset_info['browser_download_url'], asset_info['digest']))
 
-    for target_suffix, target in INSTALL_DEPS_TARGETS.items():
+    for target_suffix, target in BUNDLE_TARGETS.items():
         run_uv_export(
             extras=target.extras,
             groups=target.groups,

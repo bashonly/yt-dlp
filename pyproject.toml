@@ -97,6 +97,7 @@ secretstorage-lock = [
     "jeepney @ https://files.pythonhosted.org/packages/b2/a3/e137168c9c44d18eff0376253da9f1e9234d0239e0ee230d2fee6cea8e55/jeepney-0.9.0-py3-none-any.whl#sha256=97e5714520c16fc0a45695e5365a2e11b81ea79bba796e26f9f1d178cb182683",
     "pycparser @ https://files.pythonhosted.org/packages/0c/c3/44f3fbbfa403ea2a7c779186dc20772604442dde72947e7d01069cbe98e3/pycparser-3.0-py3-none-any.whl#sha256=b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'",
     "secretstorage @ https://files.pythonhosted.org/packages/b7/46/f5af3402b579fd5e11573ce652019a67074317e18c1935cc0b4ba9b35552/secretstorage-3.5.0-py3-none-any.whl#sha256=0ce65888c0725fcb2c5bc0fdb8e5438eece02c523557ea40ce0703c266248137",
+    "typing-extensions @ https://files.pythonhosted.org/packages/18/67/36e9267722cc04a6b9f15c7f3441c2363321a3ea07da7ae0c0707beb2a9c/typing_extensions-4.15.0-py3-none-any.whl#sha256=f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548 ; python_full_version < '3.11'",
 ]
 deno-lock = [
     "deno==2.7.8",

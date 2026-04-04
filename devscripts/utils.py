@@ -75,12 +75,12 @@ def run_process(*args, **kwargs):
     return subprocess.run(args, **kwargs)
 
 
-def request(url: str, headers: dict | None = None):
+def request(url: str, *, headers: dict | None = None):
     req = urllib.request.Request(url, headers=headers or {})
     return contextlib.closing(urllib.request.urlopen(req))
 
 
-def call_github_api(path: str, query: dict | None = None) -> dict | list:
+def call_github_api(path: str, *, query: dict | None = None) -> dict | list:
     API_BASE_URL = 'https://api.github.com/'
     assert not path.startswith(('https://', 'http://')) or path.startswith(API_BASE_URL)
 

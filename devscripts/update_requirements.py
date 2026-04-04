@@ -9,12 +9,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import collections.abc
 import dataclasses
-import json
 import pathlib
 import re
 
 from devscripts.tomlparse import parse_toml
-from devscripts.utils import request, run_process
+from devscripts.utils import call_github_api, run_process
 
 
 BASE_PATH = pathlib.Path(__file__).parent.parent
@@ -248,9 +247,7 @@ def update_requirements(upgrade_only: str | None = None):
     lockfile = parse_toml(LOCKFILE_PATH.read_text())
 
     # Generate bundle requirements
-    with request(PYINSTALLER_BUILDS_URL) as resp:
-        info = json.load(resp)
-
+    info = call_github_api(PYINSTALLER_BUILDS_URL)
     for target_suffix, asset_tag in PYINSTALLER_BUILDS_TARGETS.items():
         asset_info = next(asset for asset in info['assets'] if asset_tag in asset['name'])
         pyinstaller_version = PYINSTALLER_VERSION_RE.match(asset_info['name']).group('version')

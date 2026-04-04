@@ -7,12 +7,12 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import json
 import hashlib
 import pathlib
 
 from devscripts.update_requirements import update_requirements
 from devscripts.utils import (
+    call_github_api,
     list_wheel_contents,
     request,
 )
@@ -85,9 +85,7 @@ def main():
             key, _, val = line.partition(' = ')
             makefile_info[key] = val.rstrip()
 
-    with request(RELEASE_URL) as resp:
-        info = json.load(resp)
-
+    info = call_github_api(RELEASE_URL)
     version = info['tag_name']
     if version == current_version:
         print(f'{PACKAGE_NAME} is up to date! ({version})')

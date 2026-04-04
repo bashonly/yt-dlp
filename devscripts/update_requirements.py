@@ -16,7 +16,7 @@ import re
 import urllib.request
 
 from devscripts.tomlparse import parse_toml
-from devscripts.utils import run_process
+from devscripts.utils import request, run_process
 
 
 BASE_PATH = pathlib.Path(__file__).parent.parent
@@ -250,7 +250,7 @@ def update_requirements(upgrade_only: str | None = None):
     lockfile = parse_toml(LOCKFILE_PATH.read_text())
 
     # Generate bundle requirements
-    with contextlib.closing(urllib.request.urlopen(PYINSTALLER_BUILDS_URL)) as resp:
+    with request(PYINSTALLER_BUILDS_URL) as resp:
         info = json.load(resp)
 
     for target_suffix, asset_tag in PYINSTALLER_BUILDS_TARGETS.items():

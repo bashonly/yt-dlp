@@ -8,12 +8,10 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import collections.abc
-import contextlib
 import dataclasses
 import json
 import pathlib
 import re
-import urllib.request
 
 from devscripts.tomlparse import parse_toml
 from devscripts.utils import request, run_process

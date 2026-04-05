@@ -287,11 +287,12 @@ def update_requirements(upgrade_only: str | None = None):
                 pkg.get('wheels') for pkg in lockfile['package']
                 if pkg['name'] == dep.name and pkg['version'] == dep.version), None)
             assert wheels, f'no wheels found for {dep.name} in lockfile'
-            # If there are platform-specific wheels, then the best we can do is pin to exact version
+            # If more than wheel is available, we'll *assume* because they are platform-specific.
+            # Platform tags can't be used in markers, so the best we can do is pin to exact version
             if len(wheels) > 1:
                 lock_extra.append(line)
                 continue
-            # If there's a single 'none-any' wheel then we pin to the PyPI URL and add the hash
+            # If there's only a 'none-any' wheel, then use a direct reference to PyPI URL with hash
             wheel_url = wheels[0]['url']
             algo, _, digest = wheels[0]['hash'].partition(':')
             lock_line = f'{dep.name} @ {wheel_url}#{algo}={digest}'

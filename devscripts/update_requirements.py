@@ -287,7 +287,7 @@ def update_requirements(upgrade_only: str | None = None):
                 pkg.get('wheels') for pkg in lockfile['package']
                 if pkg['name'] == dep.name and pkg['version'] == dep.version), None)
             assert wheels, f'no wheels found for {dep.name} in lockfile'
-            # If more than wheel is available, we'll *assume* because they are platform-specific.
+            # If multiple wheels are found, we'll *assume* it's because they're platform-specific.
             # Platform tags can't be used in markers, so the best we can do is pin to exact version
             if len(wheels) > 1:
                 pinned_extra.append(line)

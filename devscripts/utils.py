@@ -90,13 +90,12 @@ def call_github_api(path: str, *, query: dict | None = None) -> dict | list:
         **(query or {}),
     }, True)
 
-    running_in_gha = os.getenv('GITHUB_ACTIONS')
     headers = {
         'Accept': 'application/vnd.github+json',
-        'User-Agent': 'dlp-bot' if running_in_gha else 'yt-dlp',
+        'User-Agent': 'yt-dlp',
         'X-GitHub-Api-Version': '2026-03-10',
     }
-    if running_in_gha and (gh_token := os.getenv('GH_TOKEN')):
+    if gh_token := os.getenv('GH_TOKEN'):
         headers['Authorization'] = f'Bearer {gh_token}'
 
     with request(urllib.parse.urlunparse(url._replace(query=qs)), headers=headers) as resp:

@@ -26,11 +26,11 @@ CUSTOM_COMPILE_COMMAND = 'python -m devscripts.update_requirements'
 EXTRAS_TABLE = 'project.optional-dependencies'
 GROUPS_TABLE = 'dependency-groups'
 
-LOCK_EXTRAS = {
-    'lock': 'default',
-    'curl-cffi-lock': 'curl-cffi',
-    'secretstorage-lock': 'secretstorage',
-    'deno-lock': 'deno',
+PINNED_EXTRAS = {
+    'pin': 'default',
+    'pin-curl-cffi': 'curl-cffi',
+    'pin-secretstorage': 'secretstorage',
+    'pin-deno': 'deno',
 }
 
 
@@ -235,9 +235,9 @@ def update_requirements(upgrade_only: str | None = None):
     pyproject_toml = parse_toml(pyproject_text)
     extras = pyproject_toml['project']['optional-dependencies']
 
-    # Remove locked extras so they don't muck up the lockfile during generation/upgrade
-    for lock_name in LOCK_EXTRAS:
-        extras.pop(lock_name, None)
+    # Remove pinned extras so they don't muck up the lockfile during generation/upgrade
+    for pinned_extra_name in PINNED_EXTRAS:
+        extras.pop(pinned_extra_name, None)
 
     # Write an intermediate pyproject.toml to use for generating lockfile and bundle requirements
     modify_and_write_pyproject(pyproject_text, table_name=EXTRAS_TABLE, table=extras)
@@ -277,11 +277,11 @@ def update_requirements(upgrade_only: str | None = None):
         input_line='pip',
         output_file=REQUIREMENTS_PATH / OUTPUT_TMPL.format('pip'))
 
-    # Generate locked extras
-    for lock_name, extra_name in LOCK_EXTRAS.items():
-        lock_extra = extras[lock_name] = []
-        compiled_extra = run_uv_export(extras=[extra_name], bare=True)
-        for line in compiled_extra.splitlines():
+    # Generate pinned extras
+    for pinned_name, extra_name in PINNED_EXTRAS.items():
+        pinned_extra = extras[pinned_name] = []
+        exported_extra = run_uv_export(extras=[extra_name], bare=True)
+        for line in exported_extra.splitlines():
             dep = parse_dependency(line)
             wheels = next((
                 pkg.get('wheels') for pkg in lockfile['package']
@@ -290,13 +290,13 @@ def update_requirements(upgrade_only: str | None = None):
             # If more than wheel is available, we'll *assume* because they are platform-specific.
             # Platform tags can't be used in markers, so the best we can do is pin to exact version
             if len(wheels) > 1:
-                lock_extra.append(line)
+                pinned_extra.append(line)
                 continue
             # If there's only a 'none-any' wheel, then use a direct reference to PyPI URL with hash
             wheel_url = wheels[0]['url']
             algo, _, digest = wheels[0]['hash'].partition(':')
-            lock_line = f'{dep.name} @ {wheel_url}#{algo}={digest}'
-            lock_extra.append(' ; '.join(filter(None, (lock_line, dep.markers))))
+            pinned_line = f'{dep.name} @ {wheel_url}#{algo}={digest}'
+            pinned_extra.append(' ; '.join(filter(None, (pinned_line, dep.markers))))
 
     # Write the finalized pyproject.toml
     modify_and_write_pyproject(pyproject_text, table_name=EXTRAS_TABLE, table=extras)

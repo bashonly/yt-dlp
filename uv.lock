@@ -1220,7 +1220,7 @@ build = [
     { name = "build" },
     { name = "hatchling", specifier = ">=1.27.0" },
 ]
-delocate = [{ name = "delocate", marker = "sys_platform == 'darwin'" }]
+delocate = [{ name = "delocate", marker = "sys_platform == 'darwin'", specifier = ">=0.13.0" }]
 dev = [
     { name = "autopep8", specifier = "~=2.0" },
     { name = "pre-commit" },

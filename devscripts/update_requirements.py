@@ -229,7 +229,7 @@ def run_pip_compile(
 
 def update_requirements(upgrade_only: str | None = None):
     # Are we upgrading all packages or only one (e.g. 'yt-dlp-ejs' or 'protobug')?
-    upgrade_arg = ''.join(('--upgrade', f'-package={upgrade_only}' if upgrade_only else ''))
+    upgrade_arg = f'--upgrade-package={upgrade_only}' if upgrade_only else '--upgrade'
 
     pyproject_text = PYPROJECT_PATH.read_text()
     pyproject_toml = parse_toml(pyproject_text)
@@ -247,17 +247,18 @@ def update_requirements(upgrade_only: str | None = None):
     lockfile = parse_toml(LOCKFILE_PATH.read_text())
 
     # Generate bundle requirements
-    info = call_github_api(PYINSTALLER_BUILDS_URL)
-    for target_suffix, asset_tag in PYINSTALLER_BUILDS_TARGETS.items():
-        asset_info = next(asset for asset in info['assets'] if asset_tag in asset['name'])
-        pyinstaller_version = PYINSTALLER_VERSION_RE.match(asset_info['name']).group('version')
-        pyinstaller_builds_deps = run_pip_compile(
-            '--no-emit-package=pyinstaller',
-            upgrade_arg,
-            input_line=f'pyinstaller=={pyinstaller_version}')
-        requirements_path = REQUIREMENTS_PATH / OUTPUT_TMPL.format(target_suffix)
-        requirements_path.write_text(PYINSTALLER_BUILDS_TMPL.format(
-            pyinstaller_builds_deps, asset_info['browser_download_url'], asset_info['digest']))
+    if not upgrade_only or upgrade_only.lower() == 'pyinstaller':
+        info = call_github_api(PYINSTALLER_BUILDS_URL)
+        for target_suffix, asset_tag in PYINSTALLER_BUILDS_TARGETS.items():
+            asset_info = next(asset for asset in info['assets'] if asset_tag in asset['name'])
+            pyinstaller_version = PYINSTALLER_VERSION_RE.match(asset_info['name']).group('version')
+            pyinstaller_builds_deps = run_pip_compile(
+                '--no-emit-package=pyinstaller',
+                upgrade_arg,
+                input_line=f'pyinstaller=={pyinstaller_version}')
+            requirements_path = REQUIREMENTS_PATH / OUTPUT_TMPL.format(target_suffix)
+            requirements_path.write_text(PYINSTALLER_BUILDS_TMPL.format(
+                pyinstaller_builds_deps, asset_info['browser_download_url'], asset_info['digest']))
 
     for target_suffix, target in BUNDLE_TARGETS.items():
         run_uv_export(

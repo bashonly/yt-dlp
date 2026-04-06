@@ -53,20 +53,31 @@ def ejs_makefile_variables(
         data: bytes | None = None,
         keys_only: bool = False,
 ) -> dict[str, str | None]:
-    assert keys_only or all(arg is not None for arg in (version, name, digest, data))
+    if keys_only:
+        return dict.fromkeys([
+            'EJS_VERSION',
+            'EJS_WHEEL_NAME',
+            'EJS_WHEEL_HASH',
+            'EJS_PY_FOLDERS',
+            'EJS_PY_FILES',
+            'EJS_JS_FOLDERS',
+            'EJS_JS_FILES',
+        ])
+
+    assert all(arg is not None for arg in (version, name, digest, data))
 
     with io.BytesIO(data) as buf, zipfile.ZipFile(buf) as zipf:
-        py_files, py_folders = zipf_files_and_folders(zipf, f'{LIBRARY_NAME}/**.py')
-        js_files, js_folders = zipf_files_and_folders(zipf, f'{LIBRARY_NAME}/**.js')
+        py_files, py_folders = zipf_files_and_folders(zipf, LIBRARY_NAME, 'py')
+        js_files, js_folders = zipf_files_and_folders(zipf, LIBRARY_NAME, 'js')
 
     return {
-        'EJS_VERSION': None if keys_only else version,
-        'EJS_WHEEL_NAME': None if keys_only else name,
-        'EJS_WHEEL_HASH': None if keys_only else digest,
-        'EJS_PY_FOLDERS': None if keys_only else ' '.join(py_folders),
-        'EJS_PY_FILES': None if keys_only else ' '.join(py_files),
-        'EJS_JS_FOLDERS': None if keys_only else ' '.join(js_folders),
-        'EJS_JS_FILES': None if keys_only else ' '.join(js_files),
+        'EJS_VERSION': version,
+        'EJS_WHEEL_NAME': name,
+        'EJS_WHEEL_HASH': digest,
+        'EJS_PY_FOLDERS': ' '.join(py_folders),
+        'EJS_PY_FILES': ' '.join(py_files),
+        'EJS_JS_FOLDERS': ' '.join(js_folders),
+        'EJS_JS_FILES': ' '.join(js_files),
     }
 
 

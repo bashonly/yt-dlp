@@ -101,12 +101,22 @@ def call_github_api(path: str, *, query: dict | None = None) -> dict | list:
         return json.load(resp)
 
 
-def zipf_files_and_folders(zipf: zipfile.ZipFile, glob: str) -> tuple[list[str], list[str]]:
+def zipf_files_and_folders(
+    zipf: zipfile.ZipFile,
+    base_dir: str | None = None,
+    suffix: str | None = None,
+) -> tuple[list[str], list[str]]:
     files = []
     folders = []
 
-    for python_file in zipfile.Path(zipf).glob(glob):
-        files.append(python_file.name)
-        folders.append(python_file.parent.name)
+    glob = f'*.{suffix}' if suffix else '*'
+    patterns = [f'{glob}', f'**/{glob}']
+    if base_dir:
+        patterns = [f'{base_dir}/{p}' for p in patterns]
 
-    return files, folders
+    for pattern in patterns:
+        for file in zipfile.Path(zipf).glob(pattern):
+            files.append(file.at)
+            folders.append(file.parent.at.rstrip('/'))
+
+    return files, list(dict.fromkeys(folders))

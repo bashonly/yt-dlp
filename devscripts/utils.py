@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import argparse
-import collections.abc
 import contextlib
 import datetime as dt
 import functools
-import io
+import itertools
+import json
+import os
 import re
 import subprocess
+import urllib.parse
 import urllib.request
 import zipfile
 
@@ -73,87 +75,44 @@ def run_process(*args, **kwargs):
     return subprocess.run(args, **kwargs)
 
 
-def request(url: str):
-    return contextlib.closing(urllib.request.urlopen(url))
+def request(url: str, *, headers: dict | None = None):
+    req = urllib.request.Request(url, headers=headers or {})
+    return contextlib.closing(urllib.request.urlopen(req))
 
 
-def list_wheel_contents(
-        wheel_data: bytes,
-        package_dir: str,
-        suffix: str | None = None,
-        folders: bool = True,
-        files: bool = True,
-        excludes: list[str] | None = None,
-) -> str:
-    assert folders or files, 'at least one of "folders" or "files" must be True'
+def call_github_api(path: str, *, query: dict | None = None) -> dict | list:
+    API_BASE_URL = 'https://api.github.com/'
+    assert not path.startswith(('https://', 'http://')) or path.startswith(API_BASE_URL)
 
-    if excludes is None:
-        excludes = []
+    url = urllib.parse.urlparse(urllib.parse.urljoin(API_BASE_URL, path))
+    qs = urllib.parse.urlencode({
+        **urllib.parse.parse_qs(url.query),
+        **(query or {}),
+    }, True)
 
-    with zipfile.ZipFile(io.BytesIO(wheel_data)) as zipf:
-        path_gen = (zinfo.filename for zinfo in zipf.infolist())
+    headers = {
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'yt-dlp',
+        'X-GitHub-Api-Version': '2026-03-10',
+    }
+    if gh_token := os.getenv('GH_TOKEN'):
+        headers['Authorization'] = f'Bearer {gh_token}'
 
-    filtered = filter(lambda path: path.startswith(f'{package_dir}/') and path not in excludes, path_gen)
-    if suffix:
-        filtered = filter(lambda path: path.endswith(f'.{suffix}'), filtered)
-
-    files_list = list(filtered)
-    if not folders:
-        return ' '.join(files_list)
-
-    folders_list = list(dict.fromkeys(path.rpartition('/')[0] for path in files_list))
-    if not files:
-        return ' '.join(folders_list)
-
-    return ' '.join(folders_list + files_list)
+    with request(urllib.parse.urlunparse(url._replace(query=qs)), headers=headers) as resp:
+        return json.load(resp)
 
 
-def requirements_needs_update(
-    lines: collections.abc.Iterable[str],
-    package: str,
-    version: str,
-):
-    identifier = f'{package}=='
-    for line in lines:
-        if line.startswith(identifier):
-            return not line.removeprefix(identifier).startswith(version)
+def zipf_files_and_folders(zipf: zipfile.ZipFile, glob: str = '*') -> tuple[list[str], list[str]]:
+    files = []
+    folders = []
 
-    return False
-
-
-def requirements_update(
-    lines: collections.abc.Iterable[str],
-    package: str,
-    new_version: str,
-    new_hashes: list[str],
-):
-    first_comment = True
-    current = []
-    for line in lines:
-        if not line.endswith('\n'):
-            line += '\n'
-
-        if first_comment:
-            comment_line = line.strip()
-            if comment_line.startswith('#'):
-                yield line
-                continue
-
-            first_comment = False
-            yield f'# It was later updated using devscripts/update_{package.removeprefix("yt-dlp-")}.py\n'
-
-        current.append(line)
-        if line.endswith('\\\n'):
-            # continue logical line
+    path = zipfile.Path(zipf)
+    for f in itertools.chain(path.glob(glob), path.rglob(glob)):
+        if not f.is_file():
             continue
+        files.append(f.at)
+        folder = f.parent.at.rstrip('/')
+        if folder and folder not in folders:
+            folders.append(folder)
 
-        if not current[0].startswith(f'{package}=='):
-            yield from current
-
-        else:
-            yield f'{package}=={new_version} \\\n'
-            for digest in new_hashes[:-1]:
-                yield f'    --hash={digest} \\\n'
-            yield f'    --hash={new_hashes[-1]}\n'
-
-        current.clear()
+    return files, folders

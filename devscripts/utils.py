@@ -4,7 +4,6 @@ import argparse
 import contextlib
 import datetime as dt
 import functools
-import io
 import json
 import os
 import re
@@ -102,37 +101,12 @@ def call_github_api(path: str, *, query: dict | None = None) -> dict | list:
         return json.load(resp)
 
 
-def list_wheel_contents(
-        wheel_data: bytes,
-        package_dir: str,
-        suffix: str | None = None,
-        folders: bool = True,
-        files: bool = True,
-        excludes: list[str] | None = None,
-) -> str:
-    assert folders or files, 'at least one of "folders" or "files" must be True'
+def zipf_files_and_folders(zipf: zipfile.ZipFile, glob: str) -> tuple[list[str], list[str]]:
+    files = []
+    folders = []
 
-    if excludes is None:
-        excludes = []
+    for python_file in zipfile.Path(zipf).glob(glob):
+        files.append(python_file.name)
+        folders.append(python_file.parent.name)
 
-    files_list = []
-    with io.BytesIO(wheel_data) as buf, zipfile.ZipFile(buf) as zipf:
-        for zinfo in zipf.infolist():
-            path = zinfo.filename
-            if path in excludes:
-                continue
-            if not path.startswith(f'{package_dir}/') :
-                continue
-            if suffix and not path.endswith(f'.{suffix}'):
-                continue
-
-            files_list.append(path)
-
-    if not folders:
-        return ' '.join(files_list)
-
-    folders_list = list(dict.fromkeys(path.rpartition('/')[0] for path in files_list))
-    if not files:
-        return ' '.join(folders_list)
-
-    return ' '.join(folders_list + files_list)
+    return files, folders

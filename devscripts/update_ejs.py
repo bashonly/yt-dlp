@@ -8,13 +8,15 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import hashlib
+import io
 import pathlib
+import zipfile
 
 from devscripts.update_requirements import update_requirements
 from devscripts.utils import (
     call_github_api,
-    list_wheel_contents,
     request,
+    zipf_files_and_folders,
 )
 
 
@@ -53,14 +55,18 @@ def ejs_makefile_variables(
 ) -> dict[str, str | None]:
     assert keys_only or all(arg is not None for arg in (version, name, digest, data))
 
+    with io.BytesIO(data) as buf, zipfile.ZipFile(buf) as zipf:
+        py_files, py_folders = zipf_files_and_folders(zipf, f'{LIBRARY_NAME}/**.py')
+        js_files, js_folders = zipf_files_and_folders(zipf, f'{LIBRARY_NAME}/**.js')
+
     return {
         'EJS_VERSION': None if keys_only else version,
         'EJS_WHEEL_NAME': None if keys_only else name,
         'EJS_WHEEL_HASH': None if keys_only else digest,
-        'EJS_PY_FOLDERS': None if keys_only else list_wheel_contents(data, LIBRARY_NAME, 'py', files=False),
-        'EJS_PY_FILES': None if keys_only else list_wheel_contents(data, LIBRARY_NAME, 'py', folders=False),
-        'EJS_JS_FOLDERS': None if keys_only else list_wheel_contents(data, LIBRARY_NAME, 'js', files=False),
-        'EJS_JS_FILES': None if keys_only else list_wheel_contents(data, LIBRARY_NAME, 'js', folders=False),
+        'EJS_PY_FOLDERS': None if keys_only else ' '.join(py_folders),
+        'EJS_PY_FILES': None if keys_only else ' '.join(py_files),
+        'EJS_JS_FOLDERS': None if keys_only else ' '.join(js_folders),
+        'EJS_JS_FILES': None if keys_only else ' '.join(js_files),
     }
 
 

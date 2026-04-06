@@ -103,16 +103,17 @@ def call_github_api(path: str, *, query: dict | None = None) -> dict | list:
 
 def zipf_files_and_folders(
     zipf: zipfile.ZipFile,
-    base_dir: str | None = None,
+    *,
+    base_path: str | None = None,
     suffix: str | None = None,
 ) -> tuple[list[str], list[str]]:
     files = []
     folders = []
 
-    glob = f'*.{suffix}' if suffix else '*'
+    glob = f'*{suffix or ""}'
     patterns = [f'{glob}', f'**/{glob}']
-    if base_dir:
-        patterns = [f'{base_dir}/{p}' for p in patterns]
+    if base_path:
+        patterns = [f'{base_path}/{p}' for p in patterns]
 
     for pattern in patterns:
         for file in zipfile.Path(zipf).glob(pattern):

@@ -67,8 +67,8 @@ def ejs_makefile_variables(
     assert all(arg is not None for arg in (version, name, digest, data))
 
     with io.BytesIO(data) as buf, zipfile.ZipFile(buf) as zipf:
-        py_files, py_folders = zipf_files_and_folders(zipf, LIBRARY_NAME, 'py')
-        js_files, js_folders = zipf_files_and_folders(zipf, LIBRARY_NAME, 'js')
+        py_files, py_folders = zipf_files_and_folders(zipf, base_path=LIBRARY_NAME, suffix='.py')
+        js_files, js_folders = zipf_files_and_folders(zipf, base_path=LIBRARY_NAME, suffix='.js')
 
     return {
         'EJS_VERSION': version,

@@ -4,6 +4,7 @@ import argparse
 import contextlib
 import datetime as dt
 import functools
+import itertools
 import json
 import os
 import re
@@ -101,27 +102,17 @@ def call_github_api(path: str, *, query: dict | None = None) -> dict | list:
         return json.load(resp)
 
 
-def zipf_files_and_folders(
-    zipf: zipfile.ZipFile,
-    *,
-    base_path: str | None = None,
-    suffix: str | None = None,
-) -> tuple[list[str], list[str]]:
+def zipf_files_and_folders(zipf: zipfile.ZipFile, glob: str = '*') -> tuple[list[str], list[str]]:
     files = []
     folders = []
 
-    glob = f'*{suffix or ""}'
-    patterns = [glob, f'**/{glob}']
-    if base_path:
-        patterns = [f'{base_path}/{p}' for p in patterns]
-
-    for pattern in patterns:
-        for f in zipfile.Path(zipf).glob(pattern):
-            if not f.is_file():
-                continue
-            files.append(f.at)
-            folder = f.parent.at.rstrip('/')
-            if folder and folder not in folders:
-                folders.append(folder)
+    path = zipfile.Path(zipf)
+    for f in itertools.chain(path.glob(glob), path.rglob(glob)):
+        if not f.is_file():
+            continue
+        files.append(f.at)
+        folder = f.parent.at.rstrip('/')
+        if folder and folder not in folders:
+            folders.append(folder)
 
     return files, folders

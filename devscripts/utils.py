@@ -115,14 +115,19 @@ def list_wheel_contents(
     if excludes is None:
         excludes = []
 
-    with zipfile.ZipFile(io.BytesIO(wheel_data)) as zipf:
-        path_gen = (zinfo.filename for zinfo in zipf.infolist())
+    files_list = []
+    with io.BytesIO(wheel_data) as buf, zipfile.ZipFile(buf) as zipf:
+        for zinfo in zipf.infolist():
+            path = zinfo.filename
+            if path in excludes:
+                continue
+            if not path.startswith(f'{package_dir}/') :
+                continue
+            if suffix and not path.endswith(f'.{suffix}'):
+                continue
 
-    filtered = filter(lambda path: path.startswith(f'{package_dir}/') and path not in excludes, path_gen)
-    if suffix:
-        filtered = filter(lambda path: path.endswith(f'.{suffix}'), filtered)
+            files_list.append(path)
 
-    files_list = list(filtered)
     if not folders:
         return ' '.join(files_list)
 

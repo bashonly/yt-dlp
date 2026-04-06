@@ -303,6 +303,10 @@ def ejs_makefile_variables(**kwargs) -> dict[str, str | None]:
     return makefile_variables('EJS', filetypes=['PY', 'JS'], **kwargs)
 
 
+def protobug_makefile_variables(**kwargs) -> dict[str, str | None]:
+    return makefile_variables('PROTOBUG', filetypes=['PY'], **kwargs)
+
+
 def update_ejs(verify: bool = False):
     PACKAGE_NAME = 'yt-dlp-ejs'
     PREFIX = f'    "{PACKAGE_NAME}=='
@@ -376,6 +380,70 @@ def update_ejs(verify: bool = False):
         version=version,
         hash_mapping=hash_mapping,
     ))
+
+    content = PYPROJECT_PATH.read_text()
+    updated = content.replace(PREFIX + current_version, PREFIX + version)
+    PYPROJECT_PATH.write_text(updated)
+
+    makefile = MAKEFILE_PATH.read_text()
+    for key in wheel_info:
+        makefile = makefile.replace(f'{key} = {makefile_info[key]}', f'{key} = {wheel_info[key]}')
+    MAKEFILE_PATH.write_text(makefile)
+
+    update_requirements(upgrade_only=PACKAGE_NAME, verify=verify)
+
+
+def update_protobug(verify: bool = False):
+    PACKAGE_NAME = 'protobug'
+    PREFIX = f'    "{PACKAGE_NAME}=='
+    LIBRARY_NAME = PACKAGE_NAME.replace('-', '_')
+    RELEASE_URL = 'https://api.github.com/repos/yt-dlp/protobug/releases/latest'
+
+    current_version = None
+    with PYPROJECT_PATH.open() as file:
+        for line in file:
+            if not line.startswith(PREFIX):
+                continue
+            current_version, _, _ = line.removeprefix(PREFIX).partition('"')
+
+    if not current_version:
+        print(f'{PACKAGE_NAME} dependency line could not be found')
+        return
+
+    makefile_info = protobug_makefile_variables(keys_only=True)
+    prefixes = tuple(f'{key} = ' for key in makefile_info)
+    with MAKEFILE_PATH.open() as file:
+        for line in file:
+            if not line.startswith(prefixes):
+                continue
+            key, _, val = line.partition(' = ')
+            makefile_info[key] = val.rstrip()
+
+    info = call_github_api(RELEASE_URL)
+    version = info['tag_name']
+    if version == current_version:
+        print(f'{PACKAGE_NAME} is up to date! ({version})')
+        return
+
+    print(f'Updating {PACKAGE_NAME} from {current_version} to {version}')
+    wheel_info = {}
+    asset_info = next(
+        asset for asset in info['assets']
+        if asset['name'].startswith(f'{LIBRARY_NAME}-') and asset['name'].endswith('.whl'))
+
+    with request(asset_info['browser_download_url']) as resp:
+        data = resp.read()
+
+    # verify digest from github
+    digest = asset_info['digest']
+    algo, _, expected = digest.partition(':')
+    hexdigest = hashlib.new(algo, data).hexdigest()
+    assert hexdigest == expected, f'downloaded attest mismatch ({hexdigest!r} != {expected!r})'
+
+    wheel_info = protobug_makefile_variables(
+        version=version, name=asset_info['name'], digest=digest, data=data)
+
+    assert all(wheel_info.get(key) for key in makefile_info), 'wheel info not found in release'
 
     content = PYPROJECT_PATH.read_text()
     updated = content.replace(PREFIX + current_version, PREFIX + version)
@@ -489,6 +557,8 @@ def main():
 
     if args.upgrade_only in ('ejs', 'yt-dlp-ejs'):
         update_ejs(verify=args.verify)
+    elif args.upgrade_only == 'protobug':
+        update_protobug(verify=args.verify)
     else:
         update_requirements(upgrade_only=args.upgrade_only, verify=args.verify)
 

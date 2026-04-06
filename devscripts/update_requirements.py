@@ -251,6 +251,10 @@ def update_requirements(upgrade_only: str | None = None, verify: bool = False):
     if verify:
         # Save the actual uv settings so we can restore them later
         uv_table = pyproject_toml['tool']['uv']
+
+        # XXX: Pop nested table; replace_table_in_pyproject only needs to know about inline tables
+        uv_table.pop('exclude-newer-package', None)
+
         last_cooldown_timestamp = parse_toml(LOCKFILE_PATH.read_text())['options']['exclude-newer']
         pyproject_text = ''.join(replace_table_in_pyproject(
             pyproject_text, UV_TABLE, {**uv_table, 'exclude-newer': last_cooldown_timestamp}))

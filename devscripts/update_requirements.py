@@ -25,6 +25,7 @@ CUSTOM_COMPILE_COMMAND = 'python -m devscripts.update_requirements'
 
 EXTRAS_TABLE = 'project.optional-dependencies'
 GROUPS_TABLE = 'dependency-groups'
+UV_TABLE = 'tool.uv'
 
 PINNED_EXTRAS = {
     'pin': 'default',
@@ -94,14 +95,20 @@ PYINSTALLER_VERSION_RE = re.compile(r'pyinstaller-(?P<version>[0-9]+\.[0-9]+\.[0
 
 def generate_table_lines(
     table_name: str,
-    table: dict[str, list[str | dict[str, str]]],
+    table: dict[str, str | list[str | dict[str, str]]],
 ) -> collections.abc.Iterator[str]:
     yield f'[{table_name}]\n'
-    for name, array in table.items():
+    for name, value in table.items():
+        assert isinstance(value, (str, list)), 'only string & array table values are supported'
+
+        if isinstance(value, str):
+            yield f'{name} = "{value}"\n'
+            continue
+
         yield f'{name} = ['
-        if array:
+        if value:
             yield '\n'
-        for element in array:
+        for element in value:
             yield '    '
             if isinstance(element, dict):
                 yield '{ ' + ', '.join(f'{k} = "{v}"' for k, v in element.items()) + ' }'
@@ -115,7 +122,7 @@ def generate_table_lines(
 def replace_table_in_pyproject(
     pyproject_text: str,
     table_name: str,
-    table: dict[str, list[str | dict[str, str]]],
+    table: dict[str, str | list[str | dict[str, str]]],
 ) -> collections.abc.Iterator[str]:
     INSIDE = 1
     BEYOND = 2
@@ -136,7 +143,7 @@ def replace_table_in_pyproject(
 def modify_and_write_pyproject(
     pyproject_text: str,
     table_name: str,
-    table: dict[str, list[str | dict[str, str]]],
+    table: dict[str, str | list[str | dict[str, str]]],
 ) -> None:
     with PYPROJECT_PATH.open(mode='w') as f:
         f.writelines(replace_table_in_pyproject(pyproject_text, table_name, table))
@@ -227,7 +234,7 @@ def run_pip_compile(
     ).stdout
 
 
-def update_requirements(upgrade_only: str | None = None):
+def update_requirements(upgrade_only: str | None = None, verify: bool = False):
     # Are we upgrading all packages or only one (e.g. 'yt-dlp-ejs' or 'protobug')?
     upgrade_arg = f'--upgrade-package={upgrade_only}' if upgrade_only else '--upgrade'
 
@@ -238,6 +245,15 @@ def update_requirements(upgrade_only: str | None = None):
     # Remove pinned extras so they don't muck up the lockfile during generation/upgrade
     for pinned_extra_name in PINNED_EXTRAS:
         extras.pop(pinned_extra_name, None)
+
+    # If verifying, replace uv's exclude-newer setting with the last timestamp recorded in uv.lock
+    uv_table = {}
+    if verify:
+        # Save the actual uv settings so we can restore them later
+        uv_table = pyproject_toml['tool']['uv']
+        last_cooldown_timestamp = parse_toml(LOCKFILE_PATH.read_text())['options']['exclude-newer']
+        pyproject_text = ''.join(replace_table_in_pyproject(
+            pyproject_text, UV_TABLE, {**uv_table, 'exclude-newer': last_cooldown_timestamp}))
 
     # Write an intermediate pyproject.toml to use for generating lockfile and bundle requirements
     modify_and_write_pyproject(pyproject_text, table_name=EXTRAS_TABLE, table=extras)
@@ -298,6 +314,10 @@ def update_requirements(upgrade_only: str | None = None):
             pinned_line = f'{dep.name} @ {wheel_url}#{algo}={digest}'
             pinned_extra.append(' ; '.join(filter(None, (pinned_line, dep.markers))))
 
+    # If verifying, we need to restore the actual uv settings
+    if verify:
+        pyproject_text = ''.join(replace_table_in_pyproject(pyproject_text, UV_TABLE, uv_table))
+
     # Write the finalized pyproject.toml
     modify_and_write_pyproject(pyproject_text, table_name=EXTRAS_TABLE, table=extras)
 
@@ -308,12 +328,15 @@ def parse_args():
     parser.add_argument(
         'upgrade_only', nargs='?', metavar='PACKAGE',
         help='only upgrade this package. (by default, all packages will be upgraded)')
+    parser.add_argument(
+        '--verify', action='store_true',
+        help='only verify the update(s) using the previously recorded cooldown timestamp')
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    update_requirements(upgrade_only=args.upgrade_only)
+    update_requirements(upgrade_only=args.upgrade_only, verify=args.verify)
 
 
 if __name__ == '__main__':

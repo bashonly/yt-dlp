@@ -111,7 +111,7 @@ def zipf_files_and_folders(
     folders = []
 
     glob = f'*{suffix or ""}'
-    patterns = [f'{glob}', f'**/{glob}']
+    patterns = [glob, f'**/{glob}']
     if base_path:
         patterns = [f'{base_path}/{p}' for p in patterns]
 

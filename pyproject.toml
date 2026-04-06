@@ -244,10 +244,10 @@ python = [
     "pypy3.11",
 ]
 
+# XXX: Do not use inlined tables in the tool.uv table
 [tool.uv]
 exclude-newer = "7 days"
 
-# XXX: Add any [tool.uv.*] nested tables to devscripts/update_requirements.py
 [tool.uv.exclude-newer-package]
 protobug = false
 yt-dlp-ejs = false

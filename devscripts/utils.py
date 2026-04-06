@@ -116,8 +116,12 @@ def zipf_files_and_folders(
         patterns = [f'{base_path}/{p}' for p in patterns]
 
     for pattern in patterns:
-        for file in zipfile.Path(zipf).glob(pattern):
-            files.append(file.at)
-            folders.append(file.parent.at.rstrip('/'))
+        for f in zipfile.Path(zipf).glob(pattern):
+            if not f.is_file():
+                continue
+            files.append(f.at)
+            folder = f.parent.at.rstrip('/')
+            if folder and folder not in folders:
+                folders.append(folder)
 
-    return files, list(dict.fromkeys(folders))
+    return files, folders

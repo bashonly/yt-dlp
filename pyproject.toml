@@ -247,6 +247,7 @@ python = [
 [tool.uv]
 exclude-newer = "7 days"
 
+# XXX: Add any [tool.uv.*] nested tables to devscripts/update_requirements.py
 [tool.uv.exclude-newer-package]
 protobug = false
 yt-dlp-ejs = false

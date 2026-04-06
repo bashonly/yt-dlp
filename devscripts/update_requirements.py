@@ -214,6 +214,7 @@ def run_pip_compile(
     *args: str,
     input_line: str,
     output_file: pathlib.Path | None = None,
+    env: dict[str, str] | None = None,
 ) -> str:
     return run_process(
         'uv', 'pip', 'compile',
@@ -231,6 +232,7 @@ def run_pip_compile(
         *([f'--output-file={output_file.relative_to(BASE_PATH)}'] if output_file else []),
         '-',  # Read from stdin
         input=f'{input_line}\n',
+        env=env,
     ).stdout
 
 
@@ -246,25 +248,16 @@ def update_requirements(upgrade_only: str | None = None, verify: bool = False):
     for pinned_extra_name in PINNED_EXTRAS:
         extras.pop(pinned_extra_name, None)
 
-    # If verifying, replace uv's exclude-newer setting with the last timestamp recorded in uv.lock
-    uv_table = {}
-    if verify:
-        # Save the actual uv settings so we can restore them later.
-        for key, value in pyproject_toml['tool']['uv'].items():
-            # Ignore nested tables since replace_table_in_pyproject doesn't support them
-            if isinstance(value, dict):
-                continue
-            uv_table[key] = value
-
-        last_cooldown_timestamp = parse_toml(LOCKFILE_PATH.read_text())['options']['exclude-newer']
-        pyproject_text = ''.join(replace_table_in_pyproject(
-            pyproject_text, UV_TABLE, {**uv_table, 'exclude-newer': last_cooldown_timestamp}))
-
     # Write an intermediate pyproject.toml to use for generating lockfile and bundle requirements
     modify_and_write_pyproject(pyproject_text, table_name=EXTRAS_TABLE, table=extras)
 
+    # If verifying, set UV_EXCLUDE_NEWER env var with the last timestamp recorded in uv.lock
+    env = {}
+    if verify:
+        env['UV_EXCLUDE_NEWER'] = parse_toml(LOCKFILE_PATH.read_text())['options']['exclude-newer']
+
     # Generate/upgrade lockfile
-    run_process('uv', 'lock', upgrade_arg)
+    run_process('uv', 'lock', upgrade_arg, env=env)
     lockfile = parse_toml(LOCKFILE_PATH.read_text())
 
     # Generate bundle requirements
@@ -276,7 +269,8 @@ def update_requirements(upgrade_only: str | None = None, verify: bool = False):
             pyinstaller_builds_deps = run_pip_compile(
                 '--no-emit-package=pyinstaller',
                 upgrade_arg,
-                input_line=f'pyinstaller=={pyinstaller_version}')
+                input_line=f'pyinstaller=={pyinstaller_version}',
+                env=env)
             requirements_path = REQUIREMENTS_PATH / OUTPUT_TMPL.format(target_suffix)
             requirements_path.write_text(PYINSTALLER_BUILDS_TMPL.format(
                 pyinstaller_builds_deps, asset_info['browser_download_url'], asset_info['digest']))
@@ -296,7 +290,8 @@ def update_requirements(upgrade_only: str | None = None, verify: bool = False):
     run_pip_compile(
         upgrade_arg,
         input_line='pip',
-        output_file=REQUIREMENTS_PATH / OUTPUT_TMPL.format('pip'))
+        output_file=REQUIREMENTS_PATH / OUTPUT_TMPL.format('pip'),
+        env=env)
 
     # Generate pinned extras
     for pinned_name, extra_name in PINNED_EXTRAS.items():
@@ -318,10 +313,6 @@ def update_requirements(upgrade_only: str | None = None, verify: bool = False):
             algo, _, digest = wheels[0]['hash'].partition(':')
             pinned_line = f'{dep.name} @ {wheel_url}#{algo}={digest}'
             pinned_extra.append(' ; '.join(filter(None, (pinned_line, dep.markers))))
-
-    # If verifying, we need to restore the actual uv settings
-    if verify:
-        pyproject_text = ''.join(replace_table_in_pyproject(pyproject_text, UV_TABLE, uv_table))
 
     # Write the finalized pyproject.toml
     modify_and_write_pyproject(pyproject_text, table_name=EXTRAS_TABLE, table=extras)

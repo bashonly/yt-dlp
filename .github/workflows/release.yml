@@ -69,7 +69,7 @@ jobs:
   prepare:
     name: Prepare
     permissions:
-      contents: read  # Push via SSH; HTTPS auth token is not needed
+      contents: read  # Push via SSH; HTTPS write token is not needed
     runs-on: ubuntu-latest
     outputs:
       channel: ${{ steps.setup_variables.outputs.channel }}

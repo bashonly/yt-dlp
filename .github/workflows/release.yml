@@ -27,6 +27,8 @@ on:
         required: false
       GPG_SIGNING_KEY:
         required: false
+      RELEASE_KEY:
+        required: false
   workflow_dispatch:
     inputs:
       source:
@@ -83,6 +85,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true  # Needed to git-push the release commit
+          ssh-key: ${{ secrets.RELEASE_KEY }}
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         with:
@@ -124,31 +127,24 @@ jobs:
           python devscripts/update_changelog.py -vv
           make doc
 
-      - name: Push to release
-        id: push_release
+      - name: Push release commit
         env:
           VERSION: ${{ steps.setup_variables.outputs.version }}
           GITHUB_EVENT_SENDER_LOGIN: ${{ github.event.sender.login }}
           GITHUB_EVENT_REF: ${{ github.event.ref }}
-        if: steps.setup_variables.outputs.target_repo == github.repository && !inputs.prerelease
+        if: vars.PUSH_VERSION_COMMIT && !inputs.prerelease && steps.setup_variables.outputs.target_repo == github.repository
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -u
           git commit -m "Release ${VERSION}" \
             -m "Created by: ${GITHUB_EVENT_SENDER_LOGIN}" -m ":ci skip all"
-          git push origin --force "${GITHUB_EVENT_REF}:release"
+          git push origin "${GITHUB_EVENT_REF}"
 
       - name: Get target commitish
         id: get_target
         run: |
           echo "head_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Update master
-        env:
-          GITHUB_EVENT_REF: ${{ github.event.ref }}
-        if: vars.PUSH_VERSION_COMMIT && !inputs.prerelease && steps.setup_variables.outputs.target_repo == github.repository
-        run: git push origin "${GITHUB_EVENT_REF}"
 
   build:
     name: Build

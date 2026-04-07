@@ -104,7 +104,6 @@ jobs:
           INPUTS: ${{ toJSON(inputs) }}
           PROCESSED: ${{ toJSON(steps.process_inputs.outputs) }}
           REPOSITORY: ${{ github.repository }}
-          PUSH_VERSION_COMMIT: ${{ !!secrets.RELEASE_KEY }}
           PYPI_PROJECT: ${{ vars.PYPI_PROJECT }}
           SOURCE_PYPI_PROJECT: ${{ vars[format('{0}_pypi_project', steps.process_inputs.outputs.source_repo)] }}
           SOURCE_PYPI_SUFFIX: ${{ vars[format('{0}_pypi_suffix', steps.process_inputs.outputs.source_repo)] }}
@@ -113,6 +112,7 @@ jobs:
           SOURCE_ARCHIVE_REPO: ${{ vars[format('{0}_archive_repo', steps.process_inputs.outputs.source_repo)] }}
           TARGET_ARCHIVE_REPO: ${{ vars[format('{0}_archive_repo', steps.process_inputs.outputs.target_repo)] }}
           HAS_ARCHIVE_REPO_TOKEN: ${{ !!secrets.ARCHIVE_REPO_TOKEN }}
+          HAS_RELEASE_KEY: ${{ !!secrets.RELEASE_KEY }}
         run: |
           python -m devscripts.setup_variables
 

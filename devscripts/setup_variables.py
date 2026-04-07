@@ -57,7 +57,7 @@ def setup_variables(environment):
         resolved_source = 'stable'
 
     revision = None
-    if INPUTS['prerelease'] or not environment['PUSH_VERSION_COMMIT']:
+    if INPUTS['prerelease'] or not json.loads(environment['PUSH_VERSION_COMMIT']):
         revision = dt.datetime.now(tz=dt.timezone.utc).strftime('%H%M%S')
 
     version = calculate_version(INPUTS.get('version') or revision)

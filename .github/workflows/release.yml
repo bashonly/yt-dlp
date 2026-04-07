@@ -69,7 +69,7 @@ jobs:
   prepare:
     name: Prepare
     permissions:
-      contents: write  # Needed to git-push the release commit
+      contents: read  # Push via SSH; HTTPS auth token is not needed
     runs-on: ubuntu-latest
     outputs:
       channel: ${{ steps.setup_variables.outputs.channel }}
@@ -104,7 +104,7 @@ jobs:
           INPUTS: ${{ toJSON(inputs) }}
           PROCESSED: ${{ toJSON(steps.process_inputs.outputs) }}
           REPOSITORY: ${{ github.repository }}
-          PUSH_VERSION_COMMIT: ${{ vars.PUSH_VERSION_COMMIT }}
+          PUSH_VERSION_COMMIT: ${{ !!secrets.RELEASE_KEY }}
           PYPI_PROJECT: ${{ vars.PYPI_PROJECT }}
           SOURCE_PYPI_PROJECT: ${{ vars[format('{0}_pypi_project', steps.process_inputs.outputs.source_repo)] }}
           SOURCE_PYPI_SUFFIX: ${{ vars[format('{0}_pypi_suffix', steps.process_inputs.outputs.source_repo)] }}
@@ -132,7 +132,8 @@ jobs:
           VERSION: ${{ steps.setup_variables.outputs.version }}
           GITHUB_EVENT_SENDER_LOGIN: ${{ github.event.sender.login }}
           GITHUB_EVENT_REF: ${{ github.event.ref }}
-        if: vars.PUSH_VERSION_COMMIT && !inputs.prerelease && steps.setup_variables.outputs.target_repo == github.repository
+          RELEASE_KEY: ${{ secrets.RELEASE_KEY }}
+        if: steps.setup_variables.outputs.target_repo == github.repository && env.RELEASE_KEY && !inputs.prerelease
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"

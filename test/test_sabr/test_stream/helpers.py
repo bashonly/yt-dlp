@@ -85,12 +85,22 @@ class MockBaseIO(io.BytesIO):
         return data
 
 
+class SabrTestResponse(Response):
+    def read(self, amt=None):
+        # Same as Response.read(), but with no default TransportError handling
+        # This allows us to test unexpected errors raised by some handlers
+        res = self.fp.read(amt)
+        if self.fp.closed:
+            self.close()
+        return res
+
+
 class SabrRequestHandler:
     def __init__(self, sabr_response_processor: SabrResponseProcessor):
         self.sabr_response_processor = sabr_response_processor
         self.request_history = []
 
-    def send(self, request: Request) -> Response:
+    def send(self, request: Request) -> SabrTestResponse:
         try:
             vpabr, parts, response_code = self.sabr_response_processor.process_request(request.data, request.url, len(self.request_history) + 1)
         except Exception as e:
@@ -109,7 +119,7 @@ class SabrRequestHandler:
                     break
                 encoder.write_part(part)
 
-        response = Response(
+        response = SabrTestResponse(
             url=request.url,
             status=response_code,
             headers={

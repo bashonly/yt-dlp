@@ -115,6 +115,9 @@ def test_expired_403(logger, client_info):
     assert len(rh.request_history) == 1
     assert rh.request_history[0].response.status == 403
 
+    # All responses should be closed
+    assert all(request.response.closed for request in rh.request_history)
+
 
 def test_non_expired_403(logger, client_info):
     # Sanity check: if we get a 403 but url has not expired, should give a SabrStreamError
@@ -135,6 +138,9 @@ def test_non_expired_403(logger, client_info):
     assert len(rh.request_history) == 1
     assert rh.request_history[0].response.status == 403
 
+    # All responses should be closed
+    assert all(request.response.closed for request in rh.request_history)
+
 
 def test_no_expiry_403(logger, client_info):
     # Sanity check: if we get a 403 but url has no expiry, should give a SabrStreamError
@@ -152,3 +158,6 @@ def test_no_expiry_403(logger, client_info):
 
     assert len(rh.request_history) == 1
     assert rh.request_history[0].response.status == 403
+
+    # All responses should be closed
+    assert all(request.response.closed for request in rh.request_history)

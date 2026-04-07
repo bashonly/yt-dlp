@@ -109,7 +109,7 @@ def test_pending_then_required_retry(logger, client_info):
     # Test that we can handle going from pending to required to ok with retries
     pending_requests = 2
 
-    sabr_stream, _, selectors = setup_sabr_stream_av(
+    sabr_stream, rh, selectors = setup_sabr_stream_av(
         sabr_response_processor=PoTokenAVProfile(),
         client_info=client_info,
         logger=logger,
@@ -145,6 +145,9 @@ def test_pending_then_required_retry(logger, client_info):
         logger.warning.assert_any_call(
             f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/5)...')
 
+    # All responses should be closed
+    assert all(request.response.closed for request in rh.request_history)
+
 
 def test_sps_required_retries_exhausted(logger, client_info):
     # Should raise PoTokenError after exhausting retries when StreamProtectionStatus is REQUIRED
@@ -177,10 +180,13 @@ def test_sps_required_retries_exhausted(logger, client_info):
     assert 'pot:N' in stats_str
     assert 'sps:ATTESTATION_REQUIRED' in stats_str
 
+    # All responses should be closed
+    assert all(request.response.closed for request in rh.request_history)
+
 
 def test_sps_invalid_retries_exhausted(logger, client_info):
     # Should raise PoTokenError after exhausting retries when StreamProtectionStatus is INVALID
-    sabr_stream, _, _ = setup_sabr_stream_av(
+    sabr_stream, rh, _ = setup_sabr_stream_av(
         sabr_response_processor=PoTokenAVProfile(),
         client_info=client_info,
         logger=logger,
@@ -202,6 +208,9 @@ def test_sps_invalid_retries_exhausted(logger, client_info):
     for i in range(1, DEFAULT_RETRIES + 1):
         logger.warning.assert_any_call(
             f'Got error: This stream requires a GVS PO Token to continue and the one provided is invalid. Retrying ({i}/5)...')
+
+    # All responses should be closed
+    assert all(request.response.closed for request in rh.request_history)
 
 
 def test_sps_retry_server_stops_sending_sps(logger, client_info):
@@ -239,10 +248,13 @@ def test_sps_retry_server_stops_sending_sps(logger, client_info):
     for request_details in rh.request_history[1:]:
         assert not any(isinstance(part, PoTokenStatusSabrPart) for part in request_details.parts)
 
+    # All responses should be closed
+    assert all(request.response.closed for request in rh.request_history)
+
 
 def test_required_exceed_max_retries(logger, client_info):
     # Should raise PoTokenError after exceeding max retries when StreamProtectionStatus is REQUIRED
-    sabr_stream, _, _ = setup_sabr_stream_av(
+    sabr_stream, rh, _ = setup_sabr_stream_av(
         sabr_response_processor=PoTokenAVProfile(),
         client_info=client_info,
         logger=logger,
@@ -257,6 +269,9 @@ def test_required_exceed_max_retries(logger, client_info):
     for i in range(1, DEFAULT_RETRIES + 1):
         logger.warning.assert_any_call(
             f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/5)...')
+
+    # All responses should be closed
+    assert all(request.response.closed for request in rh.request_history)
 
 
 def test_pot_retries_options(logger, client_info):
@@ -359,6 +374,9 @@ def test_pot_http_retries(logger, client_info):
             f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/2)...')
         logger.warning.assert_any_call(f'Got error: simulated read error. Retrying ({i}/2)...')
 
+    # All responses should be closed
+    assert all(request.response.closed for request in rh.request_history)
+
 
 def test_pot_http_retries_diff(logger, client_info):
     # Test retry logic when both http retry and pot retry are triggered
@@ -408,3 +426,6 @@ def test_pot_http_retries_diff(logger, client_info):
         logger.warning.assert_any_call(
             f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/2)...')
         logger.warning.assert_any_call(f'Got error: simulated read error. Retrying ({i}/3)...')
+
+    # All responses should be closed
+    assert all(request.response.closed for request in rh.request_history)

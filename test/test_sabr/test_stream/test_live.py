@@ -68,7 +68,7 @@ class TestLiveStreamStall:
             'custom_parts_function': no_new_segments_func,
         })
 
-        sabr_stream, _, _ = setup_sabr_stream_av(
+        sabr_stream, rh, _ = setup_sabr_stream_av(
             sabr_response_processor=profile,
             client_info=client_info,
             logger=logger,
@@ -87,6 +87,9 @@ class TestLiveStreamStall:
         # No callback registered, and should not try to call heartbeat
         with pytest.raises(AssertionError):
             logger.debug.assert_any_call('No heartbeat callback provided, skipping heartbeat check')
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
 
     @mock_time
     @pytest.mark.parametrize('post_live', [False, True], ids=['live', 'post_live'])
@@ -112,7 +115,7 @@ class TestLiveStreamStall:
             'custom_parts_function': no_new_segments_func,
         })
 
-        sabr_stream, _, _ = setup_sabr_stream_av(
+        sabr_stream, rh, _ = setup_sabr_stream_av(
             sabr_response_processor=profile,
             client_info=client_info,
             logger=logger,
@@ -133,6 +136,9 @@ class TestLiveStreamStall:
         # No callback registered, and should not try to call heartbeat
         with pytest.raises(AssertionError):
             logger.debug.assert_any_call('No heartbeat callback provided, skipping heartbeat check')
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
 
     @mock_time
     @pytest.mark.parametrize('post_live', [False, True], ids=['live', 'post_live'])
@@ -157,7 +163,7 @@ class TestLiveStreamStall:
             'omit_live_metadata': True,
         })
 
-        sabr_stream, _, selectors = setup_sabr_stream_av(
+        sabr_stream, rh, selectors = setup_sabr_stream_av(
             sabr_response_processor=profile,
             client_info=client_info,
             logger=logger,
@@ -188,6 +194,9 @@ class TestLiveStreamStall:
         else:
             # Should have tried heartbeat but skipped due to no heartbeat callback provided
             logger.debug.assert_any_call('No heartbeat callback provided, skipping heartbeat check')
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
 
     @mock_time
     @pytest.mark.parametrize('post_live', [False, True], ids=['live', 'post_live'])
@@ -379,7 +388,7 @@ class TestLiveStreamStall:
             'custom_parts_function': stall_func,
         })
 
-        sabr_stream, _, _ = setup_sabr_stream_av(
+        sabr_stream, rh, _ = setup_sabr_stream_av(
             sabr_response_processor=profile,
             client_info=client_info,
             logger=logger,
@@ -393,6 +402,9 @@ class TestLiveStreamStall:
             list(sabr_stream.iter_parts())
 
         assert len(sabr_stream.processor.initialized_formats) == 1
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
 
     @mock_time
     def test_stream_stall_head_consumed_ranges_with_heartbeat(self, logger, client_info):
@@ -708,7 +720,7 @@ class TestLiveStreamStall:
         heartbeat_callback.return_value = Heartbeat(
             is_live=True, broadcast_id='2', video_id='video_id')
 
-        sabr_stream, _, _ = setup_sabr_stream_av(
+        sabr_stream, rh, _ = setup_sabr_stream_av(
             sabr_response_processor=profile,
             client_info=client_info,
             logger=logger,
@@ -725,6 +737,9 @@ class TestLiveStreamStall:
             list(sabr_stream.iter_parts())
 
         heartbeat_callback.assert_called()
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
 
     @mock_time
     def test_stream_stall_head_consumed_ranges_chain(self, logger, client_info):
@@ -1067,7 +1082,7 @@ class TestLiveStreamStall:
             'custom_parts_function': no_new_segments_func,
         })
 
-        sabr_stream, _, _ = setup_sabr_stream_av(
+        sabr_stream, rh, _ = setup_sabr_stream_av(
             sabr_response_processor=profile,
             client_info=client_info,
             logger=logger,
@@ -1084,6 +1099,9 @@ class TestLiveStreamStall:
         # Should not have tried to check heartbeat callback
         with pytest.raises(AssertionError):
             logger.debug.assert_any_call('No heartbeat callback provided, skipping heartbeat check')
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
 
     @mock_time
     def test_stream_stall_at_head_sequence_number(self, logger, client_info):
@@ -2230,6 +2248,9 @@ class TestLiveEndErrorRetriesExhausted:
             'Retry attempts exceeded, but near the live stream head and live stream has ended. '
             'Assuming reached end of stream.')
 
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history if request.response)
+
     @mock_time
     @pytest.mark.parametrize('post_live', [False, True], ids=['live', 'post_live'])
     def test_http_error_at_end_consumed(self, logger, client_info, post_live):
@@ -2293,6 +2314,9 @@ class TestLiveEndErrorRetriesExhausted:
         logger.debug.assert_any_call(
             'Retry attempts exceeded, but near the live stream head and live stream has ended. '
             'Assuming reached end of stream.')
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history if request.response)
 
     @mock_time
     @pytest.mark.parametrize('post_live', [False, True], ids=['live', 'post_live'])
@@ -2362,6 +2386,9 @@ class TestLiveEndErrorRetriesExhausted:
             'Retry attempts exceeded, but near the live stream head and live stream has ended. '
             'Assuming reached end of stream.')
 
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history if request.response)
+
     @mock_time
     def test_error_at_end_no_heartbeat_configured(self, logger, client_info):
         # Should NOT mark the stream as consumed and safely exit when:
@@ -2417,6 +2444,9 @@ class TestLiveEndErrorRetriesExhausted:
 
         logger.debug.assert_any_call('No heartbeat callback provided, skipping heartbeat check')
         logger.debug.assert_any_call('Heartbeat does not indicate stream has finished; not marking stream as consumed on last retry')
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history if request.response)
 
     @mock_time
     def test_error_at_end_heartbeat_no_response(self, logger, client_info):
@@ -2479,6 +2509,9 @@ class TestLiveEndErrorRetriesExhausted:
         logger.debug.assert_any_call('Heartbeat callback returned no response, skipping heartbeat check')
         logger.debug.assert_any_call('Heartbeat does not indicate stream has finished; not marking stream as consumed on last retry')
 
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history if request.response)
+
     @mock_time
     def test_error_at_end_heartbeat_error(self, logger, client_info):
         # Should NOT mark the stream as consumed and safely exit when:
@@ -2540,6 +2573,9 @@ class TestLiveEndErrorRetriesExhausted:
         logger.warning.assert_any_call(
             'Error occurred while calling heartbeat callback, skipping heartbeat check: heartbeat error')
         logger.debug.assert_any_call('Heartbeat does not indicate stream has finished; not marking stream as consumed on last retry')
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history if request.response)
 
     @mock_time
     def test_error_at_end_heartbeat_still_live(self, logger, client_info):
@@ -2613,6 +2649,9 @@ class TestLiveEndErrorRetriesExhausted:
         logger.debug.assert_any_call(
             'Heartbeat does not indicate stream has finished; not marking stream as consumed on last retry')
 
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history if request.response)
+
     @mock_time
     @pytest.mark.parametrize('post_live', [False, True], ids=['live', 'post_live'])
     def test_error_at_end_not_near_head(self, logger, client_info, post_live):
@@ -2676,6 +2715,9 @@ class TestLiveEndErrorRetriesExhausted:
         heartbeat_callback.assert_not_called()
 
         logger.debug.assert_any_call('Not near live stream head; not marking stream as consumed on last retry')
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history if request.response)
 
     @mock_time
     @pytest.mark.parametrize('post_live', [False, True], ids=['live', 'post_live'])
@@ -2745,6 +2787,9 @@ class TestLiveEndErrorRetriesExhausted:
         assert sabr_stream.processor.live_state is None
 
         logger.debug.assert_any_call('No live metadata available; not marking stream as consumed on last retry')
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history if request.response)
 
     @mock_time
     @pytest.mark.parametrize('post_live', [False, True], ids=['live', 'post_live'])
@@ -2817,3 +2862,6 @@ class TestLiveEndErrorRetriesExhausted:
 
         logger.debug.assert_any_call(
             'Not all enabled format selectors have an initialized format yet; not marking stream as consumed on last retry')
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history if request.response)

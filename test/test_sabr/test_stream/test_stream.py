@@ -418,6 +418,9 @@ class TestStream:
         video_buffered_ranges = [br for br in last_request_vpabr.buffered_ranges if br.format_id == format_init_part.format_id]
         assert len(video_buffered_ranges) == 2
 
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
+
     def test_previous_segment_and_current_consumed_wrong_segment(self, logger, client_info):
         # Should throw a segment mismatch error if the previous segment and the current
         # are consumed but are not in the same consumed range chain (i.e, out of order)
@@ -504,10 +507,13 @@ class TestStream:
         assert 2 not in received_sequence_numbers
         assert 3 not in received_sequence_numbers
 
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
+
     def test_server_format_change_error(self, logger, client_info):
         # Should raise an error if the server changes the format IDs mid-stream
         processor = BasicAudioVideoProfile()
-        sabr_stream, _, _ = setup_sabr_stream_av(
+        sabr_stream, rh, _ = setup_sabr_stream_av(
             sabr_response_processor=processor,
             client_info=client_info,
             logger=logger,
@@ -528,12 +534,15 @@ class TestStream:
             # Continue retrieving parts until error is raised
             list(parts_iter)
 
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
+
     def test_video_only_audio_format_changed(self, logger, client_info):
         # Should not error if the audio format changes when video-only is requested.
         # This can happen as the client requests a specific video format but not audio (as it is discarded).
 
         processor = BasicAudioVideoProfile()
-        sabr_stream, _, selectors = setup_sabr_stream_av(
+        sabr_stream, rh, selectors = setup_sabr_stream_av(
             sabr_response_processor=processor,
             client_info=client_info,
             logger=logger,
@@ -551,6 +560,9 @@ class TestStream:
         # Should not be any audio parts
         audio_parts = [part for part in parts if hasattr(part, 'format_selector') and isinstance(part.format_selector, AudioSelector)]
         assert not audio_parts
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
 
     def test_request_number(self, logger, client_info):
         # Should set the "rn" query parameter correctly on each request
@@ -920,6 +932,9 @@ class TestStream:
         # Should have made two requests before failing
         assert len(rh.request_history) == 2
 
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
+
     # TODO: should consider more tests where selectors are not matched / used
     #  In particular, a test where audio+video selectors provided but only one format is returned
     #  In this case, it should error (could be due to missing new segments due to not incrementing player time)
@@ -993,6 +1008,9 @@ class TestStream:
         assert len(rh.request_history) == 1
         assert rh.request_history[0].vpabr.client_abr_state.player_time_ms == 0
 
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
+
     def test_unexpected_segment_at_start_resume_nonlive(self, logger, client_info):
         # Should error if the first segment received for a non-live stream
         # when resuming is not in the first consumed range chain
@@ -1011,7 +1029,7 @@ class TestStream:
         media_init_parts = [part for part in iter_parts if isinstance(part, MediaSegmentInitSabrPart)]
         assert len(media_init_parts) == DEFAULT_NUM_VIDEO_SEGMENTS + 1
 
-        sabr_stream, _, _ = setup_sabr_stream_av(
+        sabr_stream, rh, _ = setup_sabr_stream_av(
             client_info=client_info,
             logger=logger,
             sabr_response_processor=SkipSegmentProfile({'skip_segments': {1, 2, 3}}),
@@ -1048,6 +1066,9 @@ class TestStream:
             list(iter_parts)
         assert exc_info.value.expected_sequence_number == 3
         assert exc_info.value.received_sequence_number == 4
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
 
     def test_player_time_ms_start_nonzero_nonlive(self, logger, client_info):
         # Should respect start_time_ms on non-live streams

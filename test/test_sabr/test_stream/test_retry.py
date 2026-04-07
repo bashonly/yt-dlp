@@ -339,6 +339,9 @@ class TestResponseRetries:
         # Should log the retry attempt
         logger.warning.assert_any_call('Got error: simulated SABR response error. Retrying (1/10)...')
 
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
+
     def test_retry_read_failure_media_part(self, logger, client_info):
         # Should retry if a TransportError occurs while reading a media part
         inject_read_error = create_inject_read_error([2], part_id=UMPPartId.MEDIA)
@@ -362,8 +365,10 @@ class TestResponseRetries:
         retried_request = rh.request_history[2]  # followup retried request
         assert request.request.data == retried_request.request.data
 
-        # TODO: currently raises a partial segments warning, this is incorrect!
         logger.warning.assert_any_call('Got error: simulated read error. Retrying (1/10)...')
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
 
     def test_retry_failure_nth_media_part(self, logger, client_info):
         # Should retry if a TransportError occurs while reading the Nth media part
@@ -400,8 +405,10 @@ class TestResponseRetries:
                 matches += 1
         assert matches == 1, 'Expected one buffered range to be advanced by one segment after retrying Nth media part read failure'
 
-        # TODO: currently raises a partial segments warning, this is incorrect!
         logger.warning.assert_any_call('Got error: simulated read error. Retrying (1/10)...')
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
 
     def test_retry_on_response_read_failure_end(self, logger, client_info):
         # Should retry if a TransportError occurs after we have read all segments in the response and video
@@ -452,6 +459,34 @@ class TestResponseRetries:
 
         logger.warning.assert_any_call('Got error: simulated read error. Retrying (1/10)...')
 
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
+
+    def test_non_transport_read_error_no_retry(self, logger, client_info):
+        # Should not retry on a non-transporterror on response read
+        def inject_non_transport_read_error(parts, vpabr, url, request_number):
+            parts.append(UMPPart(
+                part_id=UMPPartId.SNACKBAR_MESSAGE,
+                size=0,
+                data=io.BytesIO(b''),
+            ))
+            parts.append(ValueError('non-transport read error'))
+            return parts
+
+        sabr_stream, rh, _ = setup_sabr_stream_av(
+            sabr_response_processor=CustomAVProfile({'custom_parts_function': inject_non_transport_read_error}),
+            client_info=client_info,
+            logger=logger,
+        )
+
+        with pytest.raises(ValueError, match='non-transport read error'):
+            list(sabr_stream.iter_parts())
+
+        # Only the original request should have been made (no retry)
+        assert len(rh.request_history) == 1
+        # Should close the response even if not a TransportError
+        assert rh.request_history[0].response.closed
+
 
 class TestSabrErrorRetries:
     def test_retry_on_sabr_error_part(self, logger, client_info):
@@ -471,7 +506,7 @@ class TestSabrErrorRetries:
 
             return parts
 
-        sabr_stream, _, selectors = setup_sabr_stream_av(
+        sabr_stream, rh, selectors = setup_sabr_stream_av(
             sabr_response_processor=CustomAVProfile({'custom_parts_function': sabr_error_injector}),
             client_info=client_info,
             logger=logger,
@@ -486,6 +521,9 @@ class TestSabrErrorRetries:
         # We rely on assert_media_sequence_in_order to ensure all parts were eventually retrieved and the logs for retry attempts.
         logger.warning.assert_any_call(
             "Got error: SABR Protocol Error: SabrError(type='simulated SABR error', action=1, error=None). Retrying (1/10)...")
+
+        # All responses should be closed
+        assert all(request.response.closed for request in rh.request_history)
 
 
 class TestGVSFallbackRetries:

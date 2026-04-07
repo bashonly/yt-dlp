@@ -308,6 +308,7 @@ class SabrStream:
             except TransportError as e:
                 self._current_http_retry.error = e
             except HTTPError as e:
+                e.close()
                 # retry on 5xx errors only
                 if 500 <= e.status < 600:
                     self._current_http_retry.error = e
@@ -321,9 +322,9 @@ class SabrStream:
                     yield from self._parse_ump_response(response)
                 except TransportError as e:
                     self._current_http_retry.error = e
-
-                if not response.closed:
-                    response.close()
+                finally:
+                    if not response.closed:
+                        response.close()
 
             self._validate_response_integrity()
             self._process_sps_retry()

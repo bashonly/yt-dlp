@@ -50,6 +50,9 @@ def test_no_new_segments_default(logger, client_info):
     assert 'rn:3' in stats_str
     assert 'act:N' in stats_str
 
+    # All responses should be closed
+    assert all(request.response.closed for request in rh.request_history)
+
 
 def test_no_new_segments_custom(logger, client_info):
     # Should raise SabrStreamError if no new segments are received on the fifth request (custom)

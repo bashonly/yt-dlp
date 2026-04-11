@@ -47,12 +47,6 @@ PINNED_EXTRAS = {
     'pin-deno': 'deno',
 }
 
-WELLKNOWN_PACKAGES = {
-    'deno': {'owner': 'denoland', 'repo': 'deno'},
-    'protobug': {'owner': 'yt-dlp', 'repo': 'protobug'},
-    'yt-dlp-ejs': {'owner': 'yt-dlp', 'repo': 'ejs'},
-}
-
 EJS_ASSETS = {
     'yt.solver.lib.js': False,
     'yt.solver.lib.min.js': False,
@@ -120,10 +114,15 @@ PYINSTALLER_BUILDS_TARGETS = {
     'win-arm64-pyinstaller': 'win_arm64',
 }
 
-PYINSTALLER_BUILDS_TMPL = '''\
-{}pyinstaller @ {} \\
-    --hash={}
-'''
+WELLKNOWN_PACKAGES = {
+    'deno': {'owner': 'denoland', 'repo': 'deno'},
+    'protobug': {'owner': 'yt-dlp', 'repo': 'protobug'},
+    'yt-dlp-ejs': {'owner': 'yt-dlp', 'repo': 'ejs'},
+    **{
+        f'pyinstaller[{tag}]': {'owner': 'pyinstaller', 'repo': 'pyinstaller'}
+        for tag in PYINSTALLER_BUILDS_TARGETS.values()
+    },
+}
 
 
 def call_pypi_api(project: str) -> dict[str, dict[str, typing.Any]]:
@@ -583,23 +582,27 @@ def update_requirements(
         info = fetch_latest_github_release('yt-dlp', 'Pyinstaller-Builds')
         for target_suffix, asset_tag in PYINSTALLER_BUILDS_TARGETS.items():
             asset_info = next(asset for asset in info['assets'] if asset_tag in asset['name'])
-            pyinstaller_version = parse_version_from_dist(
-                asset_info['name'], 'pyinstaller', require=True)
-            pyinstaller_builds_deps = run_pip_compile(
-                '--no-emit-package=pyinstaller',
-                upgrade_arg,
-                input_line=f'pyinstaller=={pyinstaller_version}',
-                env=env)
+
             requirements_path = REQUIREMENTS_PATH / REQS_OUTPUT_TMPL.format(target_suffix)
             if requirements_path.is_file():
                 old_requirements_txt = requirements_path.read_text()
             else:
                 old_requirements_txt = ''
 
-            new_requirements_txt = PYINSTALLER_BUILDS_TMPL.format(
-                pyinstaller_builds_deps, asset_info['browser_download_url'], asset_info['digest'])
-            requirements_path.write_text(new_requirements_txt)
-            all_updates.update(evaluate_requirements_txt(old_requirements_txt, new_requirements_txt))
+            run_pip_compile(
+                upgrade_arg,
+                input_line=f'pyinstaller @ {asset_info["browser_download_url"]}',
+                output_file=requirements_path,
+                env=env)
+
+            new_requirements_txt = requirements_path.read_text()
+            if asset_info['digest'] not in new_requirements_txt:
+                raise ValueError(f'unexpected wheel hash in requirements-{target_suffix}.txt')
+
+            diff_dict = evaluate_requirements_txt(old_requirements_txt, new_requirements_txt)
+            if diff_tuple := diff_dict.pop('pyinstaller', None):
+                all_updates[f'pyinstaller[{asset_tag}]'] = diff_tuple
+            all_updates.update(diff_dict)
 
     # Export bundle requirements; any updates to these are already recorded w/ uv.lock package diff
     for target_suffix, target in BUNDLE_TARGETS.items():
@@ -699,7 +702,8 @@ def generate_report(
                 compare = f'[`{old_tag}...{new_tag}`]({github_url}/compare/{old_tag}...{new_tag})'
 
         yield ' | '.join((
-            f'[**`{package}`**](https://pypi.org/project/{package})',
+            # Strip the [win*] tag from package in the URL (e.g. pyinstaller[win32])
+            f'[**`{package}`**](https://pypi.org/project/{package.split("[")[0]}/)',
             md_old,
             md_new,
             compare,

@@ -720,12 +720,10 @@ class TestSabrFDFormatWriter:
         assert 'Failed to resume sequence 1' in fd.report_warning.call_args.args[0]
         writer.close()
 
-    def test_close_raises_if_already_closed(self, fd, filename, info_dict):
+    def test_close_ignores_already_closed(self, fd, filename, info_dict):
         writer = make_writer(fd, filename, info_dict)
         writer.close()
-
-        with pytest.raises(ValueError, match='Already closed'):
-            writer.close()
+        writer.close()
 
     def test_write_state_ignores_partial_sequences(self, fd, filename, info_dict, format_id, format_selector):
         # should not write partial sequences to the state file

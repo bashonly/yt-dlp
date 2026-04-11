@@ -138,16 +138,15 @@ class SabrFDFormatWriter:
         return self._format_id is not None
 
     def close(self):
-        if not self.file:
-            raise ValueError('Already closed')
         for sequence in self._sequence_files:
             sequence.close()
         self._sequence_files.clear()
         if self._init_sequence:
             self._init_sequence.close()
             self._init_sequence = None
-        self.file.close()
-        self.file = None
+        if self.file:
+            self.file.close()
+            self.file = None
 
     def _find_sequence_file(self, predicate):
         match = None

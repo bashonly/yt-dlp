@@ -466,9 +466,11 @@ exclude = "*/extractor/lazy_extractors.py,*venv*,*/test/testdata/sigs/player-*.j
 [tool.pytest]
 addopts = [
     "-ra",  # summary: all except passed
-    "--verbose",
-    "--strict-markers",
+    "--tb=short",
 ]
+verbosity_test_cases = "1"
+strict_config = true
+strict_markers = true
 markers = [
     "download",
 ]

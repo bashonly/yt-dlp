@@ -597,7 +597,9 @@ def update_requirements(
 
             new_requirements_txt = requirements_path.read_text()
             if asset_info['digest'] not in new_requirements_txt:
-                raise ValueError(f'unexpected wheel hash in requirements-{target_suffix}.txt')
+                raise ValueError(
+                    f'expected pyinstaller wheel hash {asset_info["digest"]} '
+                    f'not found in {requirements_path}')
 
             diff_dict = evaluate_requirements_txt(old_requirements_txt, new_requirements_txt)
             if diff_tuple := diff_dict.pop('pyinstaller', None):

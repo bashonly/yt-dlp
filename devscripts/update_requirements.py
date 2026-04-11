@@ -447,7 +447,7 @@ def parse_version_from_dist(filename: str, name: str, *, require: bool = False) 
     normalized_name = re.sub(r'[-_.]+', '-', name).lower().replace('-', '_')
 
     # Ref: https://packaging.python.org/en/latest/specifications/version-specifiers/#version-specifiers
-    if mobj := re.match(rf'{normalized_name}-(?P<version>[^-]+)-', filename):
+    if mobj := re.fullmatch(rf'{normalized_name}-(?P<version>[^-]+)(?:-.+\.whl|\.tar\.gz)', filename):
         return mobj.group('version')
 
     if require:

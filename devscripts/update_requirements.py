@@ -611,13 +611,13 @@ def update_requirements(
             output_file=REQUIREMENTS_PATH / REQS_OUTPUT_TMPL.format(target_suffix))
 
     # Export group requirements; any updates to these are already recorded w/ uv.lock package diff
-    for group in ('build',):
+    for group in ('build', 'static-analysis', 'test'):
         run_uv_export(
             groups=[group],
             output_file=REQUIREMENTS_PATH / REQS_OUTPUT_TMPL.format(group))
 
     # Compile requirements for single packages; need to compare before & after .txt's for reporting
-    for package in ('pip',):
+    for package in ('pip', 'uv'):
         requirements_path = REQUIREMENTS_PATH / REQS_OUTPUT_TMPL.format(package)
         if requirements_path.is_file():
             old_requirements_txt = requirements_path.read_text()

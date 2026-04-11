@@ -147,6 +147,7 @@ class SabrFDFormatWriter:
             self._init_sequence.close()
             self._init_sequence = None
         self.file.close()
+        self.file = None
 
     def _find_sequence_file(self, predicate):
         match = None
@@ -201,6 +202,15 @@ class SabrFDFormatWriter:
         sequence_file = self.find_current_sequence_file(segment.segment_id) or self.find_next_sequence_file(segment)
 
         if not sequence_file:
+            # Ensure the segment is not completed already in a sequence
+            existing_sequence_file = self._find_sequence_file(
+                lambda sequence: (
+                    sequence.sequence.last_segment
+                    and sequence.sequence.last_segment.segment_id == segment.segment_id
+                ))
+            if existing_sequence_file:
+                raise DownloadError(f'Cannot reinitialize completed segment {segment.segment_id}')
+
             sequence_file = SequenceFile(
                 fd=self.fd,
                 format_filename=self.filename,

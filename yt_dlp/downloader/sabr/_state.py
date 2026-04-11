@@ -50,14 +50,14 @@ class SabrStateFile:
     def retrieve(self):
         stream, self.filename = self.fd.sanitize_open(self.filename, 'rb')
         try:
-            return self.deserialize(stream.read())
+            return self._deserialize(stream.read())
         finally:
             stream.close()
 
     def update(self, sabr_document):
         # Attempt to write progress document somewhat atomically to avoid corruption
         with tempfile.NamedTemporaryFile('wb', delete=False, dir=os.path.dirname(self.filename)) as tf:
-            tf.write(self.serialize(sabr_document))
+            tf.write(self._serialize(sabr_document))
             tf.flush()
             os.fsync(tf.fileno())
 
@@ -68,10 +68,10 @@ class SabrStateFile:
                 with contextlib.suppress(FileNotFoundError, OSError):
                     os.unlink(tf.name)
 
-    def serialize(self, sabr_document):
+    def _serialize(self, sabr_document):
         return protobug.dumps(sabr_document)
 
-    def deserialize(self, data):
+    def _deserialize(self, data):
         return protobug.loads(data, SabrState)
 
     def remove(self):

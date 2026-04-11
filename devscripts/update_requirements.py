@@ -611,7 +611,7 @@ def update_requirements(
             output_file=REQUIREMENTS_PATH / REQS_OUTPUT_TMPL.format(target_suffix))
 
     # Export group requirements; any updates to these are already recorded w/ uv.lock package diff
-    for group in ('build', 'static-analysis', 'test'):
+    for group in ('build',):
         run_uv_export(
             groups=[group],
             output_file=REQUIREMENTS_PATH / REQS_OUTPUT_TMPL.format(group))

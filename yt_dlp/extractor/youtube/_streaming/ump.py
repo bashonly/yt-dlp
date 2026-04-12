@@ -68,6 +68,75 @@ class UMPPart:
     data: io.BufferedIOBase
 
 
+class UMPPartStream(io.BufferedIOBase):
+    """
+    Wrapper around UMP decoder response file that limits the reader to a window covering only the part.
+    """
+
+    def __init__(self, fp: io.BufferedIOBase, size: int):
+        self._fp = fp
+        self._remaining = size
+        self._buffer: io.BytesIO | None = None
+        self._consumed = 0
+
+    def readable(self):
+        return True
+
+    def writable(self):
+        return False
+
+    def seekable(self):
+        return False
+
+    def tell(self):
+        return self._consumed
+
+    @property
+    def remaining(self):
+        return self._remaining
+
+    def _read_fp(self, size: int = -1) -> bytes:
+        size = self._remaining if size is None or size < 0 else min(size, self._remaining)
+        data = self._fp.read(size) or b''
+        if len(data) < size:
+            raise EOFError(f'Unexpected EOF while reading part data (expected {size}, got {len(data)})')
+        return data
+
+    def read(self, size: int = -1):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
+
+        if size == 0:
+            return b''
+
+        # read from the buffer if drained
+        if self._buffer is not None:
+            data = self._buffer.read(size)
+            self._consumed += len(data)
+            return data
+
+        if self._remaining <= 0:
+            return b''
+
+        data = self._read_fp(size)
+        self._remaining -= len(data)
+        self._consumed += len(data)
+        if not data:
+            self._remaining = 0
+        return data
+
+    def drain(self):
+        # read the rest of the remaining part data into memory
+        # so underlying file points to the next part
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
+        if self._remaining <= 0:
+            return
+        data = self._read_fp()
+        self._remaining = 0
+        self._buffer = io.BytesIO(data)
+
+
 class UMPDecoder:
     def __init__(self, fp: io.BufferedIOBase):
         self.fp = fp
@@ -87,10 +156,20 @@ class UMPDecoder:
             if self.fp.closed:
                 raise EOFError('Unexpected EOF while reading part size')
 
-            part_data = self.fp.read(part_size)
-            # In the future, we could allow streaming the part data.
-            # But we will need to ensure that each part is completely read before continuing.
-            yield UMPPart(UMPPartId(part_type), part_size, io.BytesIO(part_data))
+            part_stream = UMPPartStream(self.fp, part_size)
+            yield UMPPart(UMPPartId(part_type), part_size, part_stream)
+
+            # Allow part stream to be read at a later time,
+            # after we have already moved onto the next part.
+            if not part_stream.closed:
+                part_stream.drain()
+            else:
+                # Ensure decoder is aligned to next part.
+                # This is for the case the part stream was closed without draining
+                if part_stream.remaining > 0:
+                    drain_stream = UMPPartStream(self.fp, part_stream.remaining)
+                    drain_stream.drain()
+                    drain_stream.close()
 
 
 class UMPEncoder:

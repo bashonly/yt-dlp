@@ -339,7 +339,7 @@ class TestLiveStreamStall:
         logger.debug.assert_any_call('No activity detected in request 13; registering stall (count: 5)')
         if not post_live:
             logger.trace.assert_any_call(
-                'Near live stream head detected based on consumed ranges of active formats: head seq (8) - tolerance (3)')
+                'Near live stream head detected based on consumed ranges of active formats: head seq (8) - tolerance (4)')
             logger.debug.assert_any_call(
                 'No activity detected in 5 requests and 10.0 seconds. Near live stream head and heartbeat indicates stream may no longer be live; assuming livestream has ended.')
             assert sabr_stream._stream_stall_tracker.stalled_requests == 5
@@ -347,7 +347,7 @@ class TestLiveStreamStall:
             logger.debug.assert_any_call('No heartbeat callback provided, skipping heartbeat check')
         else:
             logger.trace.assert_any_call(
-                'Near live stream head detected based on consumed ranges of active formats: head seq (10) - tolerance (3)')
+                'Near live stream head detected based on consumed ranges of active formats: head seq (10) - tolerance (4)')
             logger.debug.assert_any_call(
                 'No activity detected in 6 requests and 10.0 seconds. Near live stream head and heartbeat indicates stream may no longer be live; assuming livestream has ended.')
             assert sabr_stream._stream_stall_tracker.stalled_requests == 6
@@ -448,7 +448,7 @@ class TestLiveStreamStall:
         logger.debug.assert_any_call('No activity detected in request 13; registering stall (count: 5)')
 
         logger.trace.assert_any_call(
-            'Near live stream head detected based on consumed ranges of active formats: head seq (8) - tolerance (3)')
+            'Near live stream head detected based on consumed ranges of active formats: head seq (8) - tolerance (4)')
         logger.debug.assert_any_call(
             'No activity detected in 5 requests and 10.0 seconds. Near live stream head and heartbeat indicates stream may no longer be live; assuming livestream has ended.')
         assert sabr_stream._stream_stall_tracker.stalled_requests == 5
@@ -506,7 +506,7 @@ class TestLiveStreamStall:
         logger.debug.assert_any_call('No activity detected in request 13; registering stall (count: 5)')
 
         logger.trace.assert_any_call(
-            'Near live stream head detected based on consumed ranges of active formats: head seq (8) - tolerance (3)')
+            'Near live stream head detected based on consumed ranges of active formats: head seq (8) - tolerance (4)')
         logger.debug.assert_any_call(
             'No activity detected in 5 requests and 10.0 seconds. Near live stream head and heartbeat indicates stream may no longer be live; assuming livestream has ended.')
         assert sabr_stream._stream_stall_tracker.stalled_requests == 5
@@ -562,7 +562,7 @@ class TestLiveStreamStall:
         logger.debug.assert_any_call('No activity detected in request 13; registering stall (count: 5)')
 
         logger.trace.assert_any_call(
-            'Near live stream head detected based on consumed ranges of active formats: head seq (8) - tolerance (3)')
+            'Near live stream head detected based on consumed ranges of active formats: head seq (8) - tolerance (4)')
         logger.debug.assert_any_call(
             'No activity detected in 5 requests and 10.0 seconds. Near live stream head and heartbeat indicates stream may no longer be live; assuming livestream has ended.')
         assert sabr_stream._stream_stall_tracker.stalled_requests == 5
@@ -620,7 +620,7 @@ class TestLiveStreamStall:
         logger.debug.assert_any_call('No activity detected in request 13; registering stall (count: 5)')
 
         logger.trace.assert_any_call(
-            'Near live stream head detected based on consumed ranges of active formats: head seq (8) - tolerance (3)')
+            'Near live stream head detected based on consumed ranges of active formats: head seq (8) - tolerance (4)')
         logger.debug.assert_any_call(
             'No activity detected in 5 requests and 10.0 seconds. Near live stream head and heartbeat indicates stream may no longer be live; assuming livestream has ended.')
         assert sabr_stream._stream_stall_tracker.stalled_requests == 5
@@ -677,7 +677,7 @@ class TestLiveStreamStall:
         logger.debug.assert_any_call('No activity detected in request 13; registering stall (count: 5)')
 
         logger.trace.assert_any_call(
-            'Near live stream head detected based on consumed ranges of active formats: head seq (8) - tolerance (3)')
+            'Near live stream head detected based on consumed ranges of active formats: head seq (8) - tolerance (4)')
         logger.debug.assert_any_call(
             'No activity detected in 5 requests and 10.0 seconds. Near live stream head and heartbeat indicates stream may no longer be live; assuming livestream has ended.')
         assert sabr_stream._stream_stall_tracker.stalled_requests == 5
@@ -848,7 +848,7 @@ class TestLiveStreamStall:
 
         logger.debug.assert_any_call('No activity detected in request 13; registering stall (count: 10)')
         logger.trace.assert_any_call(
-            'Near live stream head detected based on consumed ranges of active formats: head seq (10) - tolerance (3)')
+            'Near live stream head detected based on consumed ranges of active formats: head seq (10) - tolerance (4)')
         logger.debug.assert_any_call(
             'No activity detected in 10 requests and 18.0 seconds. Near live stream head and heartbeat indicates stream may no longer be live; assuming livestream has ended.')
         assert sabr_stream._stream_stall_tracker.stalled_requests == 10
@@ -899,14 +899,14 @@ class TestLiveStreamStall:
 
         if not post_live:
             logger.trace.assert_any_call(
-                'Near live stream head detected based on consumed ranges of active formats: head seq (8) - tolerance (3)')
+                'Near live stream head detected based on consumed ranges of active formats: head seq (8) - tolerance (4)')
             logger.debug.assert_any_call(
                 'No activity detected in 5 requests and 10.0 seconds. '
                 'Near live stream head and heartbeat indicates stream may no longer be live; assuming livestream has ended.')
             assert sabr_stream._stream_stall_tracker.stalled_requests == 5
         else:
             logger.trace.assert_any_call(
-                'Near live stream head detected based on consumed ranges of active formats: head seq (10) - tolerance (3)')
+                'Near live stream head detected based on consumed ranges of active formats: head seq (10) - tolerance (4)')
             logger.debug.assert_any_call(
                 'No activity detected in 6 requests and 10.0 seconds. '
                 'Near live stream head and heartbeat indicates stream may no longer be live; assuming livestream has ended.')
@@ -962,7 +962,7 @@ class TestLiveStreamStall:
         if not post_live:
             logger.debug.assert_any_call('No activity detected in request 13; registering stall (count: 5)')
             logger.trace.assert_any_call(
-                'Near or at live stream head detected based on player time and head sequence end time with tolerance (ms): 14000 >= 15900 - 6000')
+                'Near or at live stream head detected based on player time and head sequence end time with tolerance (ms): 14000 >= 15900 - 8000')
             logger.debug.assert_any_call(
                 'No activity detected in 5 requests and 10.0 seconds. '
                 'Near live stream head and heartbeat indicates stream may no longer be live; assuming livestream has ended.')
@@ -973,7 +973,7 @@ class TestLiveStreamStall:
         else:
             logger.debug.assert_any_call('No activity detected in request 14; registering stall (count: 6)')
             logger.trace.assert_any_call(
-                'Near or at live stream head detected based on player time and head sequence end time with tolerance (ms): 15900 >= 19900 - 6000')
+                'Near or at live stream head detected based on player time and head sequence end time with tolerance (ms): 15900 >= 19900 - 8000')
             logger.debug.assert_any_call(
                 'No activity detected in 6 requests and 10.0 seconds. '
                 'Near live stream head and heartbeat indicates stream may no longer be live; assuming livestream has ended.')
@@ -1037,7 +1037,7 @@ class TestLiveStreamStall:
 
         logger.debug.assert_any_call('No activity detected in request 13; registering stall (count: 5)')
         logger.trace.assert_any_call(
-            'Near or at live stream head detected based on player time and head sequence end time with tolerance (ms): 14000 >= 15900 - 6000')
+            'Near or at live stream head detected based on player time and head sequence end time with tolerance (ms): 14000 >= 15900 - 8000')
         logger.debug.assert_any_call(
             'No activity detected in 5 requests and 10.0 seconds. '
             'Near live stream head and heartbeat indicates stream may no longer be live; assuming livestream has ended.')
@@ -1129,7 +1129,7 @@ class TestLiveStreamStall:
 
         logger.debug.assert_any_call('No activity detected in request 15; registering stall (count: 5)')
         logger.trace.assert_any_call(
-            'Near live stream head detected based on consumed ranges of active formats: head seq (10) - tolerance (3)')
+            'Near live stream head detected based on consumed ranges of active formats: head seq (10) - tolerance (4)')
         logger.debug.assert_any_call(
             'No activity detected in 5 requests and 10.0 seconds. '
             'Near live stream head and heartbeat indicates stream may no longer be live; assuming livestream has ended.')
@@ -1206,11 +1206,11 @@ class TestLiveStreamStall:
         if not post_live:
             # live will get reset to max_seekable_time_ms, which should be near or in the latest consumed range
             logger.trace.assert_any_call(
-                'Near live stream head detected based on consumed ranges of active formats: head seq (10) - tolerance (3)')
+                'Near live stream head detected based on consumed ranges of active formats: head seq (10) - tolerance (4)')
         else:
             # post-live does not get reset to max_seekable_time_ms, so should stay where it was seeked to
             logger.trace.assert_any_call(
-                'Near or at live stream head detected based on player time and head sequence end time with tolerance (ms): 19000 >= 19900 - 6000')
+                'Near or at live stream head detected based on player time and head sequence end time with tolerance (ms): 19000 >= 19900 - 8000')
         logger.debug.assert_any_call(
             'No activity detected in 6 requests and 10.0 seconds. '
             'Near live stream head and heartbeat indicates stream may no longer be live; assuming livestream has ended.')

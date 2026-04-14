@@ -54,7 +54,14 @@ DEFAULT_POT_RETRIES = 5
 DEFAULT_HOST_FALLBACK_THRESHOLD = 8
 DEFAULT_MAX_EMPTY_REQUESTS = 3
 DEFAULT_MIN_LIVE_END_WAIT_SEC = 10
-DEFAULT_LIVE_END_SEGMENT_TOLERANCE = 3
+
+# Window at the head of the live stream to allow a stall to be recognized as a stream end.
+# Sometimes there are unreachable segments at the end of the livestream.
+# Current observations suggest a segment tolerance of 4 is sufficient.
+#
+# Note it might be possible to calculate this dynamically from the difference between
+# the head sequence time and max seekable time. However, for now it is sufficient to hardcode.
+DEFAULT_LIVE_END_SEGMENT_TOLERANCE = 4
 DEFAULT_EXPIRY_THRESHOLD_SEC = 60
 
 

@@ -98,3 +98,8 @@ class PoTokenStatus(enum.Enum):
     PENDING = enum.auto()                     # PO Token is provided, but probably only a cold start token. A full PO Token should be provided ASAP
     NOT_REQUIRED = enum.auto()                # PO Token is not provided, and is not required
     PENDING_MISSING = enum.auto()             # PO Token is not provided, but is pending. A full PO Token should be (probably) provided ASAP
+
+
+class ReloadConfigReason(enum.Enum):
+    SABR_URL_EXPIRY = enum.auto()
+    SABR_RELOAD_PLAYER_RESPONSE = enum.auto()

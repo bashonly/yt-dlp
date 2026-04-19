@@ -42,6 +42,7 @@ from .models import (
     ConsumedRange,
     InitializedFormat,
     PoTokenStatus,
+    ReloadConfigReason,
     SabrLogger,
     VideoSelector,
 )
@@ -99,6 +100,21 @@ class Heartbeat:
     broadcast_id: str | None
 
 
+@dataclasses.dataclass
+class ReloadConfigRequest:
+    reason: ReloadConfigReason
+    reload_playback_token: str | None = None
+
+
+@dataclasses.dataclass
+class ReloadConfigResponse:
+    video_playback_ustreamer_config: str
+    server_abr_streaming_url: str
+    client_info: ClientInfo
+    video_id: str
+    po_token: str | None = None
+
+
 class SabrStream:
 
     """
@@ -132,9 +148,10 @@ class SabrStream:
     @param expiry_threshold_sec: The number of seconds before the GVS expiry to consider it expired. Defaults to 1 minute.
     @param heartbeat_callback: A function called to check if the stream is still active before ending.
     @param pot_callback: A function called to retrieve a new PO Token.
+    @param reload_callback: A function called to reload the SABR configuration, such as on SABR URL expiry.
     """
 
-    # Used for debugging
+    # Parts to ignore from the state debug log
     _IGNORED_PARTS = (
         UMPPartId.REQUEST_IDENTIFIER,
         UMPPartId.REQUEST_CANCELLATION_POLICY,
@@ -174,12 +191,14 @@ class SabrStream:
         expiry_threshold_sec: int | None = None,
         heartbeat_callback: typing.Callable[[], Heartbeat] | None = None,
         pot_callback: typing.Callable[[PoTokenStatus], str | None] | None = None,
+        reload_callback: typing.Callable[[ReloadConfigRequest], ReloadConfigResponse] | None = None,
     ):
 
         self.logger = logger
         self._urlopen = urlopen
         self._heartbeat_callback = heartbeat_callback
         self._pot_callback = pot_callback
+        self._reload_callback = reload_callback
 
         self.processor = SabrProcessor(
             logger=logger,
@@ -539,6 +558,10 @@ class SabrStream:
     def _process_reload_player_response(self, part: UMPPart):
         reload_player_response = protobug.load(part.data, ReloadPlayerResponse)
         self._log_part(part, protobug_obj=reload_player_response)
+        self._reload_config(
+            reason=ReloadConfigReason.SABR_RELOAD_PLAYER_RESPONSE,
+            reload_playback_token=reload_player_response.reload_playback_params.token)
+
         yield RefreshPlayerResponseSabrPart(
             reason=RefreshPlayerResponseSabrPart.Reason.SABR_RELOAD_PLAYER_RESPONSE,
             reload_playback_token=reload_player_response.reload_playback_params.token,
@@ -578,6 +601,7 @@ class SabrStream:
 
         self.logger.debug(
             f'Requesting player response refresh as SABR URL is due to expire within {self.expiry_threshold_sec} seconds')
+        self._reload_config(reason=ReloadConfigReason.SABR_URL_EXPIRY)
         yield RefreshPlayerResponseSabrPart(reason=RefreshPlayerResponseSabrPart.Reason.SABR_URL_EXPIRY)
 
     def _has_expired(self):
@@ -585,6 +609,20 @@ class SabrStream:
         if not expires_at:
             return False
         return self._gvs_expiry() <= time.time()
+
+    def _reload_config(self, reason: ReloadConfigReason, reload_playback_token: str | None = None):
+        response = self._fetch_reloaded_config(reason, reload_playback_token)
+        if response is None:
+            return
+
+        self.url = response.server_abr_streaming_url
+        self.processor.video_playback_ustreamer_config = response.video_playback_ustreamer_config
+        self.processor.client_info = response.client_info
+
+        if response.po_token is not None:
+            self.processor.po_token = response.po_token
+
+        self.logger.debug('Reloaded SABR config')
 
     # region: Stream progression
 
@@ -920,6 +958,62 @@ class SabrStream:
             return None
 
         return po_token
+
+    def _fetch_reloaded_config(self, reason: ReloadConfigReason, reload_playback_token: str | None = None) -> ReloadConfigResponse | None:
+        if not self._reload_callback:
+            self.logger.debug('No reload callback provided, skipping config reload')
+            return None
+
+        request = ReloadConfigRequest(reason, reload_playback_token)
+        try:
+            response = self._reload_callback(request)
+        except Exception as e:
+            self.logger.warning(f'Error occurred while calling reload callback: {e!r}')
+            return None
+
+        if response is None:
+            self.logger.debug('Reload callback returned no response')
+            return None
+
+        if not self._validate_reload_config_response(response):
+            return None
+
+        return response
+
+    def _validate_reload_config_response(self, response: ReloadConfigResponse):
+        if not isinstance(response, ReloadConfigResponse):
+            self.logger.warning(f'Invalid reload response: not a ReloadConfigResponse: {response!r}')
+            return False
+
+        for item in ['video_playback_ustreamer_config', 'server_abr_streaming_url', 'video_id']:
+            value = getattr(response, item, None)
+            if value is None or not isinstance(value, str):
+                self.logger.warning(f'Invalid reload response: missing or invalid {item}: {value!r}')
+                return False
+
+        client_info = response.client_info
+        if client_info is None or not isinstance(client_info, ClientInfo):
+            self.logger.warning(f'Invalid reload response: missing or invalid client_info: {client_info!r}')
+            return False
+
+        # Only validate the client name; we can reasonably expect the client version to change
+        if client_info.client_name != self.processor.client_info.client_name:
+            self.logger.warning(
+                f'Client name in reload response does not match current client name: '
+                f'{client_info.client_name} != {self.processor.client_info.client_name}')
+            return False
+
+        video_id = response.video_id
+        if video_id is None or video_id != self.processor.video_id:
+            self.logger.warning(
+                f'Video ID in reload response does not match current video ID: {video_id} != {self.processor.video_id}')
+            return False
+
+        if response.po_token is not None and not isinstance(response.po_token, str):
+            self.logger.warning(f'Invalid reload response: po_token is not a string: {response.po_token!r}')
+            return False
+
+        return True
 
     def _player_time_near_live_head(self, tolerant=False) -> bool:
         # Check if the current player time is near or at the live stream head based on head sequence time

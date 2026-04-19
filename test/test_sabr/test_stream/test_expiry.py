@@ -38,7 +38,7 @@ def test_expiry_refresh_player_response(logger, client_info):
     assert len(rh.request_history) == 0
     assert refresh_part is not None
     assert refresh_part.reason == RefreshPlayerResponseSabrPart.Reason.SABR_URL_EXPIRY
-    logger.debug.assert_called_with(
+    logger.debug.assert_any_call(
         r'Requesting player response refresh as SABR URL is due to expire within 60 seconds')
 
     stats_str = sabr_stream.create_stats_str()
@@ -65,7 +65,7 @@ def test_expiry_threshold_sec(logger, client_info):
     assert len(rh.request_history) == 0
     assert refresh_part is not None
     assert refresh_part.reason == RefreshPlayerResponseSabrPart.Reason.SABR_URL_EXPIRY
-    logger.debug.assert_called_with(
+    logger.debug.assert_any_call(
         r'Requesting player response refresh as SABR URL is due to expire within 120 seconds')
 
 

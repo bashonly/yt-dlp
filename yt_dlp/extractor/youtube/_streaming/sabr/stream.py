@@ -131,6 +131,7 @@ class SabrStream:
     @param retry_sleep_func: A function to calculate sleep time between retries. Takes the retry count as an argument.
     @param expiry_threshold_sec: The number of seconds before the GVS expiry to consider it expired. Defaults to 1 minute.
     @param heartbeat_callback: A function called to check if the stream is still active before ending.
+    @param pot_callback: A function called to retrieve a new PO Token.
     """
 
     # Used for debugging

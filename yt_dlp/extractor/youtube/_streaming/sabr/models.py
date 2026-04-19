@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import enum
 
 from yt_dlp.extractor.youtube._proto.videostreaming import FormatId
 from yt_dlp.extractor.youtube.pot._provider import IEContentProviderLogger
@@ -88,3 +89,12 @@ class VideoSelector(FormatSelector):
 @dataclasses.dataclass
 class CaptionSelector(FormatSelector):
     mime_prefix: str = dataclasses.field(default='text')
+
+
+class PoTokenStatus(enum.Enum):
+    OK = enum.auto()                          # PO Token is provided and valid
+    MISSING = enum.auto()                     # PO Token is not provided, and is required. A PO Token should be provided ASAP
+    INVALID = enum.auto()                     # PO Token is provided, but is invalid. A new one should be generated ASAP
+    PENDING = enum.auto()                     # PO Token is provided, but probably only a cold start token. A full PO Token should be provided ASAP
+    NOT_REQUIRED = enum.auto()                # PO Token is not provided, and is not required
+    PENDING_MISSING = enum.auto()             # PO Token is not provided, but is pending. A full PO Token should be (probably) provided ASAP

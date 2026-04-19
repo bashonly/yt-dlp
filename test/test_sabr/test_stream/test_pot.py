@@ -2,7 +2,7 @@ from __future__ import annotations
 import base64
 import io
 import time
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 import pytest
 
 from test.test_sabr.test_stream.helpers import (
@@ -16,6 +16,7 @@ from test.test_sabr.test_stream.helpers import (
     setup_sabr_stream_av,
 )
 from yt_dlp.extractor.youtube._streaming.sabr.exceptions import PoTokenError
+from yt_dlp.extractor.youtube._streaming.sabr.models import PoTokenStatus
 from yt_dlp.extractor.youtube._streaming.ump import UMPPartId, UMPPart
 from yt_dlp.networking.exceptions import TransportError
 
@@ -27,12 +28,15 @@ DEFAULT_RETRIES = 5
 
 def test_sps_ok(logger, client_info):
     # Should not fail on SPS OK status (when po token is provided)
+    pot_callback = MagicMock()
+    pot_callback.side_effect = lambda status: None
     sabr_stream, rh, selectors = setup_sabr_stream_av(
-        sabr_response_processor=PoTokenAVProfile({'sps_status': PoTokenStatusSabrPart.PoTokenStatus.OK}),
+        sabr_response_processor=PoTokenAVProfile(),
         client_info=client_info,
         logger=logger,
+        pot_callback=pot_callback,
+        po_token=base64.b64encode(b'valid-po-token'),
     )
-    sabr_stream.processor.po_token = base64.b64encode(b'valid-po-token')
     audio_selector, video_selector = selectors
     parts = list(sabr_stream.iter_parts())
     assert_media_sequence_in_order(parts, audio_selector, DEFAULT_NUM_AUDIO_SEGMENTS + 1)
@@ -42,26 +46,54 @@ def test_sps_ok(logger, client_info):
     stats_str = sabr_stream.create_stats_str()
     assert 'pot:Y' in stats_str
     assert 'sps:OK' in stats_str
+    pot_callback.assert_not_called()
+
+
+def test_sps_not_required(logger, client_info):
+    # Should not fail on SPS OK status (when po token is not provided)
+    pot_callback = MagicMock()
+    pot_callback.side_effect = lambda status: None
+    sabr_stream, rh, selectors = setup_sabr_stream_av(
+        sabr_response_processor=PoTokenAVProfile({'pot_optional': True}),
+        client_info=client_info,
+        logger=logger,
+        pot_callback=pot_callback,
+    )
+    audio_selector, video_selector = selectors
+    parts = list(sabr_stream.iter_parts())
+    assert_media_sequence_in_order(parts, audio_selector, DEFAULT_NUM_AUDIO_SEGMENTS + 1)
+    assert_media_sequence_in_order(parts, video_selector, DEFAULT_NUM_VIDEO_SEGMENTS + 1)
+    assert len(rh.request_history) == 6
+
+    stats_str = sabr_stream.create_stats_str()
+    assert 'pot:N' in stats_str
+    assert 'sps:OK' in stats_str
+    pot_callback.assert_not_called()
 
 
 def test_sps_retry_on_required(logger, client_info):
-    # Should retry when StreamProtectionStatus is REQUIRED
+    # Should retry when StreamProtectionStatus is REQUIRED and fetch po token
+    count = 0
+
+    def pot_callback_side_effect(_status):
+        nonlocal count
+        count += 1
+        # Supply a simulated po_token on the 4th occurance - to allow one more retry than default
+        if count == DEFAULT_RETRIES:
+            return base64.b64encode(b'simulated_po_token_data').decode()
+        return None
+
+    pot_callback = MagicMock()
+    pot_callback.side_effect = pot_callback_side_effect
+
     sabr_stream, rh, selectors = setup_sabr_stream_av(
         sabr_response_processor=PoTokenAVProfile(),
         client_info=client_info,
         logger=logger,
+        pot_callback=pot_callback,
     )
     audio_selector, video_selector = selectors
-
-    parts = []
-    count = 0
-    for part in sabr_stream.iter_parts():
-        if isinstance(part, PoTokenStatusSabrPart) and part.status != PoTokenStatusSabrPart.PoTokenStatus.OK:
-            count += 1
-            # Supply a simulated po_token on the 4th occurance - to allow one more retry than default
-            if count == DEFAULT_RETRIES:
-                sabr_stream.processor.po_token = base64.b64encode(b'simulated_po_token_data')
-        parts.append(part)
+    parts = list(sabr_stream.iter_parts())
 
     assert_media_sequence_in_order(parts, audio_selector, DEFAULT_NUM_AUDIO_SEGMENTS + 1)
     assert_media_sequence_in_order(parts, video_selector, DEFAULT_NUM_VIDEO_SEGMENTS + 1)
@@ -70,9 +102,9 @@ def test_sps_retry_on_required(logger, client_info):
     po_token_status_parts = [part for part in parts if isinstance(part, PoTokenStatusSabrPart)]
     assert len(po_token_status_parts) >= DEFAULT_RETRIES
     for part in po_token_status_parts[:DEFAULT_RETRIES]:
-        assert part.status == PoTokenStatusSabrPart.PoTokenStatus.MISSING
+        assert part.status == PoTokenStatus.MISSING
     for part in po_token_status_parts[DEFAULT_RETRIES:]:
-        assert part.status == PoTokenStatusSabrPart.PoTokenStatus.OK
+        assert part.status == PoTokenStatus.OK
 
     # Second request should be a retry of the first, so playback time should be the same
     retry_request_vpabr = rh.request_history[1].vpabr
@@ -82,17 +114,75 @@ def test_sps_retry_on_required(logger, client_info):
     for i in range(1, DEFAULT_RETRIES):
         logger.warning.assert_any_call(
             f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/5)...')
+    logger.debug.assert_any_call('Fetched new PO Token')
+    logger.debug.assert_any_call('PO Token callback returned no response')
+    pot_callback.assert_called_with(PoTokenStatus.MISSING)
+
+
+def test_sps_retry_on_invalid(logger, client_info):
+    # Should retry when StreamProtectionStatus is REQUIRED due to an invalid pot and fetch po token
+    count = 0
+
+    def pot_callback_side_effect(_status):
+        nonlocal count
+        count += 1
+        # Supply a simulated po_token on the 4th occurance - to allow one more retry than default
+        if count == DEFAULT_RETRIES:
+            return base64.b64encode(b'simulated_po_token_data').decode()
+        return None
+
+    pot_callback = MagicMock()
+    pot_callback.side_effect = pot_callback_side_effect
+
+    sabr_stream, rh, selectors = setup_sabr_stream_av(
+        sabr_response_processor=PoTokenAVProfile(),
+        client_info=client_info,
+        logger=logger,
+        pot_callback=pot_callback,
+        po_token=base64.b64encode(b'invalid').decode(),
+    )
+    audio_selector, video_selector = selectors
+    parts = list(sabr_stream.iter_parts())
+
+    assert_media_sequence_in_order(parts, audio_selector, DEFAULT_NUM_AUDIO_SEGMENTS + 1)
+    assert_media_sequence_in_order(parts, video_selector, DEFAULT_NUM_VIDEO_SEGMENTS + 1)
+
+    # Should have 2 PoTokenStatusSabrPart parts indicating Invalid, then the following are all OK
+    po_token_status_parts = [part for part in parts if isinstance(part, PoTokenStatusSabrPart)]
+    assert len(po_token_status_parts) >= DEFAULT_RETRIES
+    for part in po_token_status_parts[:DEFAULT_RETRIES]:
+        assert part.status == PoTokenStatus.INVALID
+    for part in po_token_status_parts[DEFAULT_RETRIES:]:
+        assert part.status == PoTokenStatus.OK
+
+    # Second request should be a retry of the first, so playback time should be the same
+    retry_request_vpabr = rh.request_history[1].vpabr
+    assert retry_request_vpabr.client_abr_state.player_time_ms == rh.request_history[
+        0].vpabr.client_abr_state.player_time_ms
+
+    for i in range(1, DEFAULT_RETRIES):
+        logger.warning.assert_any_call(
+            f'Got error: This stream requires a GVS PO Token to continue and the one provided is invalid. Retrying ({i}/5)...')
+    logger.debug.assert_any_call('Fetched new PO Token')
+    logger.debug.assert_any_call('PO Token callback returned no response')
+    pot_callback.assert_called_with(PoTokenStatus.INVALID)
 
 
 def test_no_retry_on_pending(logger, client_info):
     # Should NOT retry when StreamProtectionStatus is PENDING. Should just continue processing.
+    # It should call the callback on PENDING.
+
+    pot_callback = MagicMock()
+    pot_callback.side_effect = lambda status: None
+
     sabr_stream, _, selectors = setup_sabr_stream_av(
         sabr_response_processor=PoTokenAVProfile(),
         client_info=client_info,
         logger=logger,
+        pot_callback=pot_callback,
+        po_token=base64.b64encode(b'pending').decode(),
     )
 
-    sabr_stream.processor.po_token = base64.b64encode(b'pending')
     parts = list(sabr_stream.iter_parts())
     audio_selector, video_selector = selectors
 
@@ -102,7 +192,42 @@ def test_no_retry_on_pending(logger, client_info):
     po_token_status_parts = [part for part in parts if isinstance(part, PoTokenStatusSabrPart)]
     assert len(po_token_status_parts) >= 1
     for part in po_token_status_parts:
-        assert part.status == PoTokenStatusSabrPart.PoTokenStatus.PENDING
+        assert part.status == PoTokenStatus.PENDING
+
+    assert sabr_stream.processor.po_token == base64.b64encode(b'pending').decode()
+    pot_callback.assert_called_with(PoTokenStatus.PENDING)
+    logger.debug.assert_any_call('PO Token callback returned no response')
+
+
+def test_no_retry_on_pending_missing(logger, client_info):
+    # Should NOT retry when StreamProtectionStatus is PENDING_MISSING. Should just continue processing.
+    # It should call the callback on PENDING.
+
+    pot_callback = MagicMock()
+    pot_callback.side_effect = lambda status: None
+
+    sabr_stream, _, selectors = setup_sabr_stream_av(
+        sabr_response_processor=PoTokenAVProfile({'pending_if_missing': True}),
+        client_info=client_info,
+        logger=logger,
+        pot_callback=pot_callback,
+        po_token=None,
+    )
+
+    parts = list(sabr_stream.iter_parts())
+    audio_selector, video_selector = selectors
+
+    assert_media_sequence_in_order(parts, audio_selector, DEFAULT_NUM_AUDIO_SEGMENTS + 1)
+    assert_media_sequence_in_order(parts, video_selector, DEFAULT_NUM_VIDEO_SEGMENTS + 1)
+
+    po_token_status_parts = [part for part in parts if isinstance(part, PoTokenStatusSabrPart)]
+    assert len(po_token_status_parts) >= 1
+    for part in po_token_status_parts:
+        assert part.status == PoTokenStatus.PENDING_MISSING
+
+    assert sabr_stream.processor.po_token is None
+    pot_callback.assert_called_with(PoTokenStatus.PENDING_MISSING)
+    logger.debug.assert_any_call('PO Token callback returned no response')
 
 
 def test_pending_then_required_retry(logger, client_info):
@@ -121,7 +246,7 @@ def test_pending_then_required_retry(logger, client_info):
     parts = []
     count = 0
     for part in sabr_stream.iter_parts():
-        if isinstance(part, PoTokenStatusSabrPart) and part.status != PoTokenStatusSabrPart.PoTokenStatus.OK:
+        if isinstance(part, PoTokenStatusSabrPart) and part.status != PoTokenStatus.OK:
             count += 1
             if count == pending_requests:
                 sabr_stream.processor.po_token = None  # Simulate no token, will get REQUIRED
@@ -135,11 +260,11 @@ def test_pending_then_required_retry(logger, client_info):
     # Should have 2 PoTokenStatusSabrPart parts indicating Missing, then the following are all OK
     po_token_status_parts = [part for part in parts if isinstance(part, PoTokenStatusSabrPart)]
     for part in po_token_status_parts[:pending_requests]:
-        assert part.status == PoTokenStatusSabrPart.PoTokenStatus.PENDING
+        assert part.status == PoTokenStatus.PENDING
     for part in po_token_status_parts[pending_requests:DEFAULT_RETRIES + pending_requests]:
-        assert part.status == PoTokenStatusSabrPart.PoTokenStatus.MISSING
+        assert part.status == PoTokenStatus.MISSING
     for part in po_token_status_parts[pending_requests + DEFAULT_RETRIES:]:
-        assert part.status == PoTokenStatusSabrPart.PoTokenStatus.OK
+        assert part.status == PoTokenStatus.OK
 
     for i in range(1, DEFAULT_RETRIES + 1):
         logger.warning.assert_any_call(
@@ -151,12 +276,13 @@ def test_pending_then_required_retry(logger, client_info):
 
 def test_sps_required_retries_exhausted(logger, client_info):
     # Should raise PoTokenError after exhausting retries when StreamProtectionStatus is REQUIRED
+    # No callback configured
     sabr_stream, rh, _ = setup_sabr_stream_av(
         sabr_response_processor=PoTokenAVProfile(),
         client_info=client_info,
         logger=logger,
     )
-    sabr_stream.processor.po_token = None
+    assert sabr_stream.processor.po_token is None
 
     parts = []
     with pytest.raises(PoTokenError, match='This stream requires a GVS PO Token to continue'):
@@ -167,7 +293,7 @@ def test_sps_required_retries_exhausted(logger, client_info):
     po_token_status_parts = [part for part in parts if isinstance(part, PoTokenStatusSabrPart)]
     assert len(po_token_status_parts) == DEFAULT_RETRIES + 1
     for part in po_token_status_parts:
-        assert part.status == PoTokenStatusSabrPart.PoTokenStatus.MISSING
+        assert part.status == PoTokenStatus.MISSING
 
     for i in range(1, DEFAULT_RETRIES + 1):
         logger.warning.assert_any_call(
@@ -183,9 +309,12 @@ def test_sps_required_retries_exhausted(logger, client_info):
     # All responses should be closed
     assert all(request.response.closed for request in rh.request_history)
 
+    logger.debug.assert_any_call('No PO Token callback provided, skipping PO Token fetch')
+
 
 def test_sps_invalid_retries_exhausted(logger, client_info):
     # Should raise PoTokenError after exhausting retries when StreamProtectionStatus is INVALID
+    # No callback configured
     sabr_stream, rh, _ = setup_sabr_stream_av(
         sabr_response_processor=PoTokenAVProfile(),
         client_info=client_info,
@@ -203,7 +332,7 @@ def test_sps_invalid_retries_exhausted(logger, client_info):
     po_token_status_parts = [part for part in parts if isinstance(part, PoTokenStatusSabrPart)]
     assert len(po_token_status_parts) == DEFAULT_RETRIES + 1
     for part in po_token_status_parts:
-        assert part.status == PoTokenStatusSabrPart.PoTokenStatus.INVALID
+        assert part.status == PoTokenStatus.INVALID
 
     for i in range(1, DEFAULT_RETRIES + 1):
         logger.warning.assert_any_call(
@@ -211,6 +340,7 @@ def test_sps_invalid_retries_exhausted(logger, client_info):
 
     # All responses should be closed
     assert all(request.response.closed for request in rh.request_history)
+    logger.debug.assert_any_call('No PO Token callback provided, skipping PO Token fetch')
 
 
 def test_sps_retry_server_stops_sending_sps(logger, client_info):
@@ -239,7 +369,7 @@ def test_sps_retry_server_stops_sending_sps(logger, client_info):
     po_token_status_parts = [part for part in parts if isinstance(part, PoTokenStatusSabrPart)]
     assert len(po_token_status_parts) == DEFAULT_RETRIES + 1
     for part in po_token_status_parts:
-        assert part.status == PoTokenStatusSabrPart.PoTokenStatus.MISSING
+        assert part.status == PoTokenStatus.MISSING
 
     for i in range(1, DEFAULT_RETRIES + 1):
         logger.warning.assert_any_call(
@@ -429,3 +559,93 @@ def test_pot_http_retries_diff(logger, client_info):
 
     # All responses should be closed
     assert all(request.response.closed for request in rh.request_history)
+
+
+def test_pot_callback_error(logger, client_info):
+    # Should handle error from the pot callback gracefully and continue retries until exhaustion
+    def pot_callback_side_effect(_status):
+        raise ValueError('callback error')
+
+    pot_callback = MagicMock()
+    pot_callback.side_effect = pot_callback_side_effect
+
+    sabr_stream, rh, _ = setup_sabr_stream_av(
+        sabr_response_processor=PoTokenAVProfile(),
+        client_info=client_info,
+        logger=logger,
+        pot_callback=pot_callback,
+    )
+
+    assert sabr_stream.processor.po_token is None
+
+    parts = []
+    with pytest.raises(PoTokenError, match='This stream requires a GVS PO Token to continue'):
+        for part in sabr_stream.iter_parts():
+            parts.append(part)
+
+    # Should have 6 PoTokenStatusSabrPart parts indicating missing
+    po_token_status_parts = [part for part in parts if isinstance(part, PoTokenStatusSabrPart)]
+    assert len(po_token_status_parts) == DEFAULT_RETRIES + 1
+    for part in po_token_status_parts:
+        assert part.status == PoTokenStatus.MISSING
+
+    for i in range(1, DEFAULT_RETRIES + 1):
+        logger.warning.assert_any_call(
+            f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/5)...')
+
+    for request_details in rh.request_history[1:]:
+        assert not any(isinstance(part, PoTokenStatusSabrPart) for part in request_details.parts)
+
+    stats_str = sabr_stream.create_stats_str()
+    assert 'pot:N' in stats_str
+    assert 'sps:ATTESTATION_REQUIRED' in stats_str
+
+    # All responses should be closed
+    assert all(request.response.closed for request in rh.request_history)
+
+    logger.warning.assert_any_call("Error occurred while calling PO Token callback: ValueError('callback error')")
+
+
+def test_pot_callback_invalid(logger, client_info):
+    # Should handle invalid response from the pot callback gracefully and continue retries until exhaustion
+    def pot_callback_side_effect(_status):
+        return b'invalid'
+
+    pot_callback = MagicMock()
+    pot_callback.side_effect = pot_callback_side_effect
+
+    sabr_stream, rh, _ = setup_sabr_stream_av(
+        sabr_response_processor=PoTokenAVProfile(),
+        client_info=client_info,
+        logger=logger,
+        pot_callback=pot_callback,
+    )
+
+    assert sabr_stream.processor.po_token is None
+
+    parts = []
+    with pytest.raises(PoTokenError, match='This stream requires a GVS PO Token to continue'):
+        for part in sabr_stream.iter_parts():
+            parts.append(part)
+
+    # Should have 6 PoTokenStatusSabrPart parts indicating missing
+    po_token_status_parts = [part for part in parts if isinstance(part, PoTokenStatusSabrPart)]
+    assert len(po_token_status_parts) == DEFAULT_RETRIES + 1
+    for part in po_token_status_parts:
+        assert part.status == PoTokenStatus.MISSING
+
+    for i in range(1, DEFAULT_RETRIES + 1):
+        logger.warning.assert_any_call(
+            f'Got error: This stream requires a GVS PO Token to continue. Retrying ({i}/5)...')
+
+    for request_details in rh.request_history[1:]:
+        assert not any(isinstance(part, PoTokenStatusSabrPart) for part in request_details.parts)
+
+    stats_str = sabr_stream.create_stats_str()
+    assert 'pot:N' in stats_str
+    assert 'sps:ATTESTATION_REQUIRED' in stats_str
+
+    # All responses should be closed
+    assert all(request.response.closed for request in rh.request_history)
+
+    logger.warning.assert_any_call("Invalid PO Token response received: b'invalid'")

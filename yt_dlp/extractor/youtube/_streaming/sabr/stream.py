@@ -36,10 +36,16 @@ from .exceptions import (
     SabrUrlExpired,
     StreamStallError,
 )
-from .models import AudioSelector, CaptionSelector, ConsumedRange, InitializedFormat, SabrLogger, VideoSelector
-from .part import (
-    RefreshPlayerResponseSabrPart,
+from .models import (
+    AudioSelector,
+    CaptionSelector,
+    ConsumedRange,
+    InitializedFormat,
+    PoTokenStatus,
+    SabrLogger,
+    VideoSelector,
 )
+from .part import RefreshPlayerResponseSabrPart
 from .processor import SabrProcessor, build_vpabr_request
 from .utils import (
     broadcast_id_from_url,
@@ -166,11 +172,13 @@ class SabrStream:
         retry_sleep_func: typing.Callable[[int], int] | None = None,
         expiry_threshold_sec: int | None = None,
         heartbeat_callback: typing.Callable[[], Heartbeat] | None = None,
+        pot_callback: typing.Callable[[PoTokenStatus], str | None] | None = None,
     ):
 
         self.logger = logger
         self._urlopen = urlopen
         self._heartbeat_callback = heartbeat_callback
+        self._pot_callback = pot_callback
 
         self.processor = SabrProcessor(
             logger=logger,
@@ -471,6 +479,21 @@ class SabrStream:
         sps = protobug.load(part.data, StreamProtectionStatus)
         self._log_part(part, msg=f'Status: {StreamProtectionStatus.Status(sps.status).name}', protobug_obj=sps)
         result = self.processor.process_stream_protection_status(sps)
+        if not result.sabr_part:
+            return
+
+        status = result.sabr_part.status
+        if status in (
+            PoTokenStatus.INVALID,
+            PoTokenStatus.PENDING,
+            PoTokenStatus.MISSING,
+            PoTokenStatus.PENDING_MISSING,
+        ):
+            po_token = self._fetch_pot(status)
+            if po_token is not None:
+                self.logger.debug('Fetched new PO Token')
+                self.processor.po_token = po_token
+
         if result.sabr_part:
             yield result.sabr_part
 
@@ -875,6 +898,27 @@ class SabrStream:
 
         self._process_broadcast_id(heartbeat.broadcast_id)
         return heartbeat.is_live
+
+    def _fetch_pot(self, status: PoTokenStatus):
+        if not self._pot_callback:
+            self.logger.debug('No PO Token callback provided, skipping PO Token fetch')
+            return None
+
+        try:
+            po_token = self._pot_callback(status)
+        except Exception as e:
+            self.logger.warning(f'Error occurred while calling PO Token callback: {e!r}')
+            return None
+
+        if po_token is None:
+            self.logger.debug('PO Token callback returned no response')
+            return None
+
+        if not isinstance(po_token, str):
+            self.logger.warning(f'Invalid PO Token response received: {po_token!r}')
+            return None
+
+        return po_token
 
     def _player_time_near_live_head(self, tolerant=False) -> bool:
         # Check if the current player time is near or at the live stream head based on head sequence time

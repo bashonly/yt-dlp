@@ -31,6 +31,7 @@ from .models import (
     CaptionSelector,
     ConsumedRange,
     InitializedFormat,
+    PoTokenStatus,
     SabrLogger,
     Segment,
     VideoSelector,
@@ -586,18 +587,18 @@ class SabrProcessor:
 
         if status == StreamProtectionStatus.Status.OK:
             result_status = (
-                PoTokenStatusSabrPart.PoTokenStatus.OK if po_token
-                else PoTokenStatusSabrPart.PoTokenStatus.NOT_REQUIRED
+                PoTokenStatus.OK if po_token
+                else PoTokenStatus.NOT_REQUIRED
             )
         elif status == StreamProtectionStatus.Status.ATTESTATION_PENDING:
             result_status = (
-                PoTokenStatusSabrPart.PoTokenStatus.PENDING if po_token
-                else PoTokenStatusSabrPart.PoTokenStatus.PENDING_MISSING
+                PoTokenStatus.PENDING if po_token
+                else PoTokenStatus.PENDING_MISSING
             )
         elif status == StreamProtectionStatus.Status.ATTESTATION_REQUIRED:
             result_status = (
-                PoTokenStatusSabrPart.PoTokenStatus.INVALID if po_token
-                else PoTokenStatusSabrPart.PoTokenStatus.MISSING
+                PoTokenStatus.INVALID if po_token
+                else PoTokenStatus.MISSING
             )
         else:
             self.logger.warning(f'Received an unknown StreamProtectionStatus: {stream_protection_status}')

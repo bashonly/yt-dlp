@@ -32,6 +32,7 @@ from yt_dlp.extractor.youtube._streaming.sabr.models import (
     InitializedFormat,
     Segment,
     ConsumedRange,
+    PoTokenStatus,
 )
 from yt_dlp.extractor.youtube._proto.videostreaming import (
     FormatId,
@@ -353,12 +354,12 @@ class TestStreamProtectionStatus:
     @pytest.mark.parametrize(
         'sps,po_token,expected_status',
         [
-            (StreamProtectionStatus.Status.OK, None, PoTokenStatusSabrPart.PoTokenStatus.NOT_REQUIRED),
-            (StreamProtectionStatus.Status.OK, 'valid_token', PoTokenStatusSabrPart.PoTokenStatus.OK),
-            (StreamProtectionStatus.Status.ATTESTATION_PENDING, None, PoTokenStatusSabrPart.PoTokenStatus.PENDING_MISSING),
-            (StreamProtectionStatus.Status.ATTESTATION_PENDING, 'valid_token', PoTokenStatusSabrPart.PoTokenStatus.PENDING),
-            (StreamProtectionStatus.Status.ATTESTATION_REQUIRED, None, PoTokenStatusSabrPart.PoTokenStatus.MISSING),
-            (StreamProtectionStatus.Status.ATTESTATION_REQUIRED, 'valid_token', PoTokenStatusSabrPart.PoTokenStatus.INVALID),
+            (StreamProtectionStatus.Status.OK, None, PoTokenStatus.NOT_REQUIRED),
+            (StreamProtectionStatus.Status.OK, 'valid_token', PoTokenStatus.OK),
+            (StreamProtectionStatus.Status.ATTESTATION_PENDING, None, PoTokenStatus.PENDING_MISSING),
+            (StreamProtectionStatus.Status.ATTESTATION_PENDING, 'valid_token', PoTokenStatus.PENDING),
+            (StreamProtectionStatus.Status.ATTESTATION_REQUIRED, None, PoTokenStatus.MISSING),
+            (StreamProtectionStatus.Status.ATTESTATION_REQUIRED, 'valid_token', PoTokenStatus.INVALID),
         ],
     )
     def test_stream_protection_status_part(self, base_args, sps, po_token, expected_status):

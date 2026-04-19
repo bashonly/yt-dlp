@@ -14,13 +14,18 @@ from yt_dlp.extractor.youtube._streaming.sabr.part import (
     MediaSegmentEndSabrPart,
     MediaSegmentDataSabrPart,
     MediaSegmentInitSabrPart,
-    PoTokenStatusSabrPart,
     RefreshPlayerResponseSabrPart,
     FormatInitializedSabrPart,
     LiveStateSabrPart,
 )
 from yt_dlp.extractor.youtube._streaming.sabr.stream import SabrStream, Heartbeat
-from yt_dlp.extractor.youtube._streaming.sabr.models import ConsumedRange, AudioSelector, VideoSelector, CaptionSelector
+from yt_dlp.extractor.youtube._streaming.sabr.models import (
+    ConsumedRange,
+    AudioSelector,
+    VideoSelector,
+    CaptionSelector,
+    PoTokenStatus,
+)
 from yt_dlp.extractor.youtube._streaming.sabr.exceptions import SabrStreamError, BroadcastIdChanged
 from yt_dlp.extractor.youtube._proto.innertube import ClientInfo, ClientName
 from yt_dlp.extractor.youtube._proto.videostreaming import FormatId
@@ -129,7 +134,7 @@ class SabrFD(FileDownloader):
                     server_abr_streaming_url=format_group['server_abr_streaming_url'],
                     video_playback_ustreamer_config=format_group['video_playback_ustreamer_config'],
                     initial_po_token=format_group['initial_po_token'],
-                    fetch_po_token_fn=format_group['fetch_po_token_fn'],
+                    pot_callback=self._create_pot_callback(format_group['fetch_po_token_fn']),
                     heartbeat_callback=self._create_heartbeat_callback(format_group['extract_heartbeat_fn']),
                     reload_config_fn=format_group['reload_config_fn'],
                     client_info=format_group['client_info'],
@@ -199,6 +204,16 @@ class SabrFD(FileDownloader):
 
         return callback
 
+    def _create_pot_callback(self, fetch_po_token_fn):
+        def callback(status: PoTokenStatus):
+            if not fetch_po_token_fn:
+                self._report_pot_callback_unavailable()
+                return None
+            return fetch_po_token_fn(
+                bypass_cache=status in (PoTokenStatus.INVALID, PoTokenStatus.PENDING),
+                required=True)
+        return callback
+
     def _download_sabr_stream(
         self,
         video_id: str,
@@ -211,7 +226,7 @@ class SabrFD(FileDownloader):
         server_abr_streaming_url: str,
         video_playback_ustreamer_config: str,
         initial_po_token: str,
-        fetch_po_token_fn: callable | None = None,
+        pot_callback: callable | None = None,
         reload_config_fn: callable | None = None,
         heartbeat_callback: callable | None = None,
         client_info: ClientInfo | None = None,
@@ -270,6 +285,7 @@ class SabrFD(FileDownloader):
             video_id=video_id,
             retry_sleep_func=self.params.get('retry_sleep_functions', {}).get('http'),
             heartbeat_callback=heartbeat_callback,
+            pot_callback=pot_callback,
         )
 
         self._prepare_multiline_status(len(writers) + 1)
@@ -280,30 +296,6 @@ class SabrFD(FileDownloader):
                 if is_test and total_bytes >= self._TEST_FILE_SIZE:
                     stream.close()
                     break
-                if isinstance(part, PoTokenStatusSabrPart):
-                    if part.status in (
-                        part.PoTokenStatus.INVALID,
-                        part.PoTokenStatus.PENDING,
-                    ):
-                        if not fetch_po_token_fn:
-                            self._report_pot_callback_unavailable()
-                            continue
-                        # Fetch a PO token with bypass_cache=True
-                        # (ensure we create a new one)
-                        po_token = fetch_po_token_fn(bypass_cache=True, required=True)
-                        if po_token:
-                            stream.processor.po_token = po_token
-                    elif part.status in (
-                        part.PoTokenStatus.MISSING,
-                        part.PoTokenStatus.PENDING_MISSING,
-                    ):
-                        if not fetch_po_token_fn:
-                            self._report_pot_callback_unavailable()
-                            continue
-                        # Fetch a PO Token, bypass_cache=False
-                        po_token = fetch_po_token_fn(bypass_cache=False, required=True)
-                        if po_token:
-                            stream.processor.po_token = po_token
 
                 elif isinstance(part, FormatInitializedSabrPart):
                     writer = writers.get(part.format_selector.display_name)

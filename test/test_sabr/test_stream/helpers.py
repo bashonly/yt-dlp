@@ -552,7 +552,12 @@ class PoTokenAVProfile(BasicAudioVideoProfile):
 
     def get_parts(self, vpabr: VideoPlaybackAbrRequest, url: str, request_number: int) -> list[UMPPart | Exception]:
         parts = []
-        if vpabr.streamer_context.po_token is None or vpabr.streamer_context.po_token == b'invalid':
+        if vpabr.streamer_context.po_token is None and self.options.get('pending_if_missing', False):
+            status = StreamProtectionStatus.Status.ATTESTATION_PENDING
+        elif (
+            not self.options.get('pot_optional', False)
+            and (vpabr.streamer_context.po_token is None or vpabr.streamer_context.po_token == b'invalid')
+        ):
             status = StreamProtectionStatus.Status.ATTESTATION_REQUIRED
         elif vpabr.streamer_context.po_token == b'pending':
             status = StreamProtectionStatus.Status.ATTESTATION_PENDING

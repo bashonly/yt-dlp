@@ -5,7 +5,7 @@ import enum
 
 from yt_dlp.extractor.youtube._proto.videostreaming import FormatId
 
-from .models import FormatSelector
+from .models import FormatSelector, PoTokenStatus
 
 
 @dataclasses.dataclass
@@ -58,14 +58,6 @@ class FormatInitializedSabrPart(SabrPart):
 
 @dataclasses.dataclass
 class PoTokenStatusSabrPart(SabrPart):
-    class PoTokenStatus(enum.Enum):
-        OK = enum.auto()                          # PO Token is provided and valid
-        MISSING = enum.auto()                     # PO Token is not provided, and is required. A PO Token should be provided ASAP
-        INVALID = enum.auto()                     # PO Token is provided, but is invalid. A new one should be generated ASAP
-        PENDING = enum.auto()                     # PO Token is provided, but probably only a cold start token. A full PO Token should be provided ASAP
-        NOT_REQUIRED = enum.auto()                # PO Token is not provided, and is not required
-        PENDING_MISSING = enum.auto()             # PO Token is not provided, but is pending. A full PO Token should be (probably) provided ASAP
-
     status: PoTokenStatus
 
 

@@ -46,7 +46,15 @@ from .models import (
     SabrLogger,
     VideoSelector,
 )
-from .part import RefreshPlayerResponseSabrPart
+from .part import (
+    FormatInitializedSabrPart,
+    LiveStateSabrPart,
+    MediaSeekSabrPart,
+    MediaSegmentDataSabrPart,
+    MediaSegmentEndSabrPart,
+    MediaSegmentInitSabrPart,
+    PoTokenStatusSabrPart,
+)
 from .processor import SabrProcessor, build_vpabr_request
 from .utils import (
     broadcast_id_from_url,
@@ -111,8 +119,19 @@ class ReloadConfigResponse:
     video_playback_ustreamer_config: str
     server_abr_streaming_url: str
     client_info: ClientInfo
-    video_id: str
+    video_id: str | None = None
     po_token: str | None = None
+    heartbeat_callback: HeartbeatCallback | None = None
+    pot_callback: PotCallback | None = None
+    reload_callback: ReloadCallback | None = None
+
+
+if typing.TYPE_CHECKING:
+    ReloadCallback = typing.Callable[[ReloadConfigRequest], ReloadConfigResponse | None]
+    PotCallback = typing.Callable[[PoTokenStatus], str | None]
+    HeartbeatCallback = typing.Callable[[], Heartbeat | None]
+    SabrPartType = MediaSegmentInitSabrPart | MediaSegmentDataSabrPart | MediaSegmentEndSabrPart | FormatInitializedSabrPart | PoTokenStatusSabrPart | MediaSeekSabrPart | LiveStateSabrPart
+    IterPartsType = typing.Generator[SabrPartType, None, None]
 
 
 class SabrStream:
@@ -149,6 +168,16 @@ class SabrStream:
     @param heartbeat_callback: A function called to check if the stream is still active before ending.
     @param pot_callback: A function called to retrieve a new PO Token.
     @param reload_callback: A function called to reload the SABR configuration, such as on SABR URL expiry.
+
+
+    Yielded parts:
+    - FormatInitializedSabrPart
+    - MediaSegmentInitSabrPart
+    - MediaSegmentDataSabrPart
+    - MediaSegmentEndSabrPart
+    - PoTokenStatusSabrPart
+    - MediaSeekSabrPart
+    - LiveStateSabrPart
     """
 
     # Parts to ignore from the state debug log
@@ -189,9 +218,9 @@ class SabrStream:
         video_id: str | None = None,
         retry_sleep_func: typing.Callable[[int], int] | None = None,
         expiry_threshold_sec: int | None = None,
-        heartbeat_callback: typing.Callable[[], Heartbeat] | None = None,
-        pot_callback: typing.Callable[[PoTokenStatus], str | None] | None = None,
-        reload_callback: typing.Callable[[ReloadConfigRequest], ReloadConfigResponse] | None = None,
+        heartbeat_callback: HeartbeatCallback | None = None,
+        pot_callback: PotCallback | None = None,
+        reload_callback: ReloadCallback | None = None,
     ):
 
         self.logger = logger
@@ -276,7 +305,7 @@ class SabrStream:
         if bid != self.broadcast_id:
             raise BroadcastIdChanged(self.broadcast_id, bid)
 
-    def iter_parts(self):
+    def iter_parts(self) -> IterPartsType:
         if self._consumed:
             raise SabrStreamConsumedError('SABR stream has already been consumed')
 
@@ -314,7 +343,7 @@ class SabrStream:
             self._log_state()
             self._process_next_wait()
 
-            yield from self._process_expiry()
+            self._process_expiry()
             vpabr = build_vpabr_request(self.processor)
             self._last_vpabr = vpabr
 
@@ -449,7 +478,7 @@ class SabrStream:
             elif part.part_id == UMPPartId.SABR_CONTEXT_SENDING_POLICY:
                 self._process_sabr_context_sending_policy(part)
             elif part.part_id == UMPPartId.RELOAD_PLAYER_RESPONSE:
-                yield from self._process_reload_player_response(part)
+                self._process_reload_player_response(part)
             elif part.part_id == UMPPartId.CUEPOINT_LIST:
                 self._process_cuepoint_list(part)
             else:
@@ -562,11 +591,6 @@ class SabrStream:
             reason=ReloadConfigReason.SABR_RELOAD_PLAYER_RESPONSE,
             reload_playback_token=reload_player_response.reload_playback_params.token)
 
-        yield RefreshPlayerResponseSabrPart(
-            reason=RefreshPlayerResponseSabrPart.Reason.SABR_RELOAD_PLAYER_RESPONSE,
-            reload_playback_token=reload_player_response.reload_playback_params.token,
-        )
-
     def _process_cuepoint_list(self, part: UMPPart):
         cuepoint_list = protobug.load(part.data, CuepointList)
         self._log_part(part, protobug_obj=cuepoint_list)
@@ -592,17 +616,16 @@ class SabrStream:
 
         if not expires_at:
             self.logger.warning(
-                'No expiry timestamp found in SABR URL. Will not be able to refresh.', once=True)
+                'No expiry timestamp found in URL. Will not be able to refresh.', once=True)
             return
 
         if expires_at - self.expiry_threshold_sec >= time.time():
-            self.logger.trace(f'SABR url expires in {int(expires_at - time.time())} seconds')
+            self.logger.trace(f'URL expires in {int(expires_at - time.time())} seconds')
             return
 
         self.logger.debug(
-            f'Requesting player response refresh as SABR URL is due to expire within {self.expiry_threshold_sec} seconds')
+            f'Requesting config refresh as the URL is due to expire within {self.expiry_threshold_sec} seconds')
         self._reload_config(reason=ReloadConfigReason.SABR_URL_EXPIRY)
-        yield RefreshPlayerResponseSabrPart(reason=RefreshPlayerResponseSabrPart.Reason.SABR_URL_EXPIRY)
 
     def _has_expired(self):
         expires_at = self._gvs_expiry()
@@ -621,6 +644,18 @@ class SabrStream:
 
         if response.po_token is not None:
             self.processor.po_token = response.po_token
+
+        # Clear ad contexts as the ids will no longer be valid
+        self.processor.sabr_context_updates.clear()
+        self.processor.sabr_contexts_to_send.clear()
+        self.processor.ad_cuepoints.clear()
+
+        if response.reload_callback:
+            self._reload_callback = response.reload_callback
+        if response.pot_callback:
+            self._pot_callback = response.pot_callback
+        if response.heartbeat_callback:
+            self._heartbeat_callback = response.heartbeat_callback
 
         self.logger.debug('Reloaded SABR config')
 
@@ -985,7 +1020,7 @@ class SabrStream:
             self.logger.warning(f'Invalid reload response: not a ReloadConfigResponse: {response!r}')
             return False
 
-        for item in ['video_playback_ustreamer_config', 'server_abr_streaming_url', 'video_id']:
+        for item in ('video_playback_ustreamer_config', 'server_abr_streaming_url'):
             value = getattr(response, item, None)
             if value is None or not isinstance(value, str):
                 self.logger.warning(f'Invalid reload response: missing or invalid {item}: {value!r}')
@@ -1000,11 +1035,11 @@ class SabrStream:
         if client_info.client_name != self.processor.client_info.client_name:
             self.logger.warning(
                 f'Client name in reload response does not match current client name: '
-                f'{client_info.client_name} != {self.processor.client_info.client_name}')
+                f'{client_info.client_name} != {self.processor.client_info.client_name.name}')
             return False
 
         video_id = response.video_id
-        if video_id is None or video_id != self.processor.video_id:
+        if self.processor.video_id is not None and video_id != self.processor.video_id:
             self.logger.warning(
                 f'Video ID in reload response does not match current video ID: {video_id} != {self.processor.video_id}')
             return False
@@ -1012,6 +1047,12 @@ class SabrStream:
         if response.po_token is not None and not isinstance(response.po_token, str):
             self.logger.warning(f'Invalid reload response: po_token is not a string: {response.po_token!r}')
             return False
+
+        for item in ('heartbeat_callback', 'pot_callback', 'reload_callback'):
+            value = getattr(response, item, None)
+            if value is not None and not callable(value):
+                self.logger.warning(f'Invalid reload response: invalid callback function for {item}: {value!r}')
+                return False
 
         return True
 

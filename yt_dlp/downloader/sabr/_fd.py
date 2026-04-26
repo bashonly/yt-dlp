@@ -2,9 +2,9 @@ from __future__ import annotations
 import collections
 import itertools
 import math
+import typing
 
-from yt_dlp.networking.exceptions import TransportError, HTTPError
-from yt_dlp.utils import traverse_obj, int_or_none, DownloadError, join_nonempty, ExtractorError
+from yt_dlp.utils import traverse_obj, int_or_none, DownloadError, join_nonempty
 from yt_dlp.downloader import FileDownloader
 
 from ._writer import SabrFDFormatWriter
@@ -14,26 +14,36 @@ from yt_dlp.extractor.youtube._streaming.sabr.part import (
     MediaSegmentEndSabrPart,
     MediaSegmentDataSabrPart,
     MediaSegmentInitSabrPart,
-    RefreshPlayerResponseSabrPart,
     FormatInitializedSabrPart,
     LiveStateSabrPart,
 )
-from yt_dlp.extractor.youtube._streaming.sabr.stream import SabrStream, Heartbeat
+from yt_dlp.extractor.youtube._streaming.sabr.stream import (
+    SabrStream,
+    Heartbeat,
+    ReloadConfigResponse,
+)
 from yt_dlp.extractor.youtube._streaming.sabr.models import (
     ConsumedRange,
     AudioSelector,
     VideoSelector,
     CaptionSelector,
-    PoTokenStatus,
+    PoTokenStatus, ReloadConfigReason,
 )
 from yt_dlp.extractor.youtube._streaming.sabr.exceptions import SabrStreamError, BroadcastIdChanged
 from yt_dlp.extractor.youtube._proto.innertube import ClientInfo, ClientName
 from yt_dlp.extractor.youtube._proto.videostreaming import FormatId
 from yt_dlp.extractor.youtube._streaming.sabr.processor import JS_MAX_SAFE_INTEGER
 
+if typing.TYPE_CHECKING:
+    from yt_dlp.extractor.youtube._streaming.sabr.stream import (
+        PotCallback,
+        ReloadCallback,
+        HeartbeatCallback,
+        ReloadConfigRequest,
+    )
+
 
 class SabrFD(FileDownloader):
-
     @classmethod
     def can_download(cls, info_dict):
         return (
@@ -42,6 +52,13 @@ class SabrFD(FileDownloader):
                 format_info.get('protocol') == 'sabr'
                 for format_info in info_dict['requested_formats']))
 
+    def _client_info_from_json(self, client_info_json):
+        return ClientInfo(
+            **{
+                **client_info_json,
+                'client_name': traverse_obj(client_info_json, ('client_name', {lambda x: ClientName[x]})),
+            })
+
     def _group_formats_by_client(self, filename, info_dict):
         format_groups = collections.defaultdict(dict, {})
         requested_formats = info_dict.get('requested_formats') or [info_dict]
@@ -49,7 +66,7 @@ class SabrFD(FileDownloader):
         for _idx, f in enumerate(requested_formats):
             sabr_config = f.get('_sabr_config')
             client_name = sabr_config.get('client_name')
-            client_info = sabr_config.get('client_info')
+            client_info = self._client_info_from_json(sabr_config.get('client_info'))
             server_abr_streaming_url = f.get('url')
             video_playback_ustreamer_config = sabr_config.get('video_playback_ustreamer_config')
 
@@ -69,13 +86,7 @@ class SabrFD(FileDownloader):
                     'extract_heartbeat_fn': fn if callable(fn := sabr_config.get('extract_heartbeat_fn')) else None,
                     'live_status': sabr_config.get('live_status'),
                     'video_id': sabr_config.get('video_id'),
-                    'client_info': ClientInfo(
-                        **{
-                            **client_info,
-                            'client_name': traverse_obj(
-                                client_info, ('client_name', {lambda x: ClientName[x]})),
-                        },
-                    ),
+                    'client_info': client_info,
                     'target_duration_sec': sabr_config.get('target_duration_sec'),
                     'live_from_start': f.get('is_from_start', False),
                 }
@@ -136,7 +147,7 @@ class SabrFD(FileDownloader):
                     initial_po_token=format_group['initial_po_token'],
                     pot_callback=self._create_pot_callback(format_group['fetch_po_token_fn']),
                     heartbeat_callback=self._create_heartbeat_callback(format_group['extract_heartbeat_fn']),
-                    reload_config_fn=format_group['reload_config_fn'],
+                    reload_callback=self._create_reload_callback(format_group['reload_config_fn']),
                     client_info=format_group['client_info'],
                     live_from_start=format_group['live_from_start'],
                     target_duration_sec=format_group.get('target_duration_sec', None),
@@ -145,7 +156,9 @@ class SabrFD(FileDownloader):
                 )
         return True
 
-    def _create_heartbeat_callback(self, extract_heartbeat_fn):
+    def _create_heartbeat_callback(self, extract_heartbeat_fn) -> HeartbeatCallback | None:
+        if not extract_heartbeat_fn:
+            return None
         logger = create_sabrfd_logger(self.ydl, prefix='sabr:heartbeat')
 
         def callback():
@@ -198,13 +211,39 @@ class SabrFD(FileDownloader):
                 return None
 
             # Cannot determine live status from heartbeat
-            # TODO: we should consider returning a heartbeat anyways with the broadcast id if we can extract it.
+            # TODO(future): consider returning a heartbeat anyways with the broadcast id if we can extract it.
             logger.debug('Unknown status, not returning a heartbeat')
             return None
 
         return callback
 
-    def _create_pot_callback(self, fetch_po_token_fn):
+    def _create_reload_callback(self, reload_config_fn) -> ReloadCallback | None:
+        if not reload_config_fn:
+            return None
+
+        def callback(request: ReloadConfigRequest):
+            if not reload_config_fn:
+                self._report_reload_callback_unavailable()
+                return None
+
+            self._report_reload(request.reason)
+            url, sabr_config = reload_config_fn(request.reload_playback_token)
+            return ReloadConfigResponse(
+                video_id=sabr_config.get('video_id'),
+                video_playback_ustreamer_config=sabr_config.get('video_playback_ustreamer_config'),
+                server_abr_streaming_url=url,
+                po_token=sabr_config.get('po_token'),
+                client_info=self._client_info_from_json(sabr_config.get('client_info')),
+                pot_callback=self._create_pot_callback(sabr_config.get('fetch_po_token_fn')),
+                heartbeat_callback=self._create_heartbeat_callback(sabr_config.get('extract_heartbeat_fn')),
+                reload_callback=self._create_reload_callback(sabr_config.get('reload_config_fn')),
+            )
+        return callback
+
+    def _create_pot_callback(self, fetch_po_token_fn) -> PotCallback | None:
+        if not fetch_po_token_fn:
+            return None
+
         def callback(status: PoTokenStatus):
             if not fetch_po_token_fn:
                 self._report_pot_callback_unavailable()
@@ -226,9 +265,9 @@ class SabrFD(FileDownloader):
         server_abr_streaming_url: str,
         video_playback_ustreamer_config: str,
         initial_po_token: str,
-        pot_callback: callable | None = None,
-        reload_config_fn: callable | None = None,
-        heartbeat_callback: callable | None = None,
+        pot_callback: PotCallback = None,
+        reload_callback: ReloadCallback = None,
+        heartbeat_callback: HeartbeatCallback = None,
         client_info: ClientInfo | None = None,
         live_from_start: bool = False,
         target_duration_sec: int | None = None,
@@ -286,6 +325,7 @@ class SabrFD(FileDownloader):
             retry_sleep_func=self.params.get('retry_sleep_functions', {}).get('http'),
             heartbeat_callback=heartbeat_callback,
             pot_callback=pot_callback,
+            reload_callback=reload_callback,
         )
 
         self._prepare_multiline_status(len(writers) + 1)
@@ -343,22 +383,6 @@ class SabrFD(FileDownloader):
                         continue
                     writer.end_segment(part)
 
-                elif isinstance(part, RefreshPlayerResponseSabrPart):
-                    self.to_screen(f'Refreshing player response; Reason: {part.reason}')
-                    # In-place refresh - not ideal but should work in most cases
-                    # TODO: handle case where live stream changes to non-livestream on refresh?
-                    # TODO: if live, allow a seek as for non-DVR streams the reload may be longer than the buffer duration
-                    # TODO: handle po token function change
-                    if not reload_config_fn:
-                        self.report_warning(
-                            '[download] Unable to reload SABR config: no reload callback available. '
-                            'This can occur if --load-info-json is used. The download will likely fail. ', only_once=True)
-                        continue
-                    try:
-                        stream.url, stream.processor.video_playback_ustreamer_config = reload_config_fn(part.reload_playback_token)
-                    except (TransportError, HTTPError, ExtractorError) as e:
-                        self.report_warning(f'Failed to refresh SABR streaming URL: {e}')
-
                 elif isinstance(part, LiveStateSabrPart):
                     if not logged_dvr_message and not part.full_stream_available:
                         self._log_dvr_window_availability(part.available_dvr_window_ms, live_from_start)
@@ -410,6 +434,19 @@ class SabrFD(FileDownloader):
             '[download] Unable to retrieve a new PO Token: no PO Token callback available. '
             'This can occur if --load-info-json is used. '
             'The download will likely fail if a valid PO token is required. ', only_once=True)
+
+    def _report_reload_callback_unavailable(self):
+        self.report_warning(
+            '[download] Unable to refresh download url: no reload callback available. '
+            'This can occur if --load-info-json is used. The download may fail.', only_once=True)
+
+    def _report_reload(self, reason):
+        msg = '[download] Refreshing download url'
+        if reason == ReloadConfigReason.SABR_URL_EXPIRY:
+            msg += ' as it expires soon'
+        elif reason == ReloadConfigReason.SABR_RELOAD_PLAYER_RESPONSE:
+            msg += ' as requested by the server'
+        self.to_screen(msg)
 
 
 def format_type(f):

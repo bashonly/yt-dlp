@@ -12,7 +12,6 @@ from test.test_sabr.test_stream.helpers import (
     assert_media_sequence_in_order,
     setup_sabr_stream_av,
 )
-from yt_dlp.extractor.youtube._proto.videostreaming.reload_player_response import ReloadPlaybackParams
 from yt_dlp.extractor.youtube._streaming.sabr.exceptions import (
     SabrStreamError,
     StreamStallError,
@@ -21,9 +20,9 @@ from yt_dlp.extractor.youtube._streaming.ump import UMPPartId, UMPPart
 from yt_dlp.networking.exceptions import TransportError
 
 from yt_dlp.extractor.youtube._streaming.sabr.models import AudioSelector
-from yt_dlp.extractor.youtube._streaming.sabr.part import RefreshPlayerResponseSabrPart
+from yt_dlp.extractor.youtube._streaming.sabr.part import PoTokenStatusSabrPart
 from yt_dlp.extractor.youtube._streaming.sabr.stream import SabrStream
-from yt_dlp.extractor.youtube._proto.videostreaming import ReloadPlayerResponse
+from yt_dlp.extractor.youtube._proto.videostreaming import StreamProtectionStatus
 
 
 def test_no_new_segments_default(logger, client_info):
@@ -269,15 +268,16 @@ def test_discarded_segments_not_counted(logger, client_info):
     # This allows us to catch the iterator before going onto the next request so we can clear consumed ranges.
     # (Format parts will NOT be returned as the format is marked to discard)
     def no_new_segments_discarded_func(parts, vpabr, url, request_number):
-        # On 1st request, inject in ReloadPlayerResponse part
+        # On 1st request, inject in SPS so we can update consumed ranges
+        # (these tests do not use SPS elsewhere)
         if request_number == 1:
-            payload = protobug.dumps(ReloadPlayerResponse(
-                reload_playback_params=ReloadPlaybackParams(token='test token'),
+            payload = protobug.dumps(StreamProtectionStatus(
+                status=StreamProtectionStatus.Status.OK,
             ))
             return [
                 parts[0],  # Format init part
                 UMPPart(
-                    part_id=UMPPartId.RELOAD_PLAYER_RESPONSE,
+                    part_id=UMPPartId.STREAM_PROTECTION_STATUS,
                     size=len(payload),
                     data=io.BytesIO(payload),
                 ),
@@ -301,7 +301,7 @@ def test_discarded_segments_not_counted(logger, client_info):
     parts_iter = sabr_stream.iter_parts()
 
     reload_player_response_part = next(parts_iter)
-    assert isinstance(reload_player_response_part, RefreshPlayerResponseSabrPart)
+    assert isinstance(reload_player_response_part, PoTokenStatusSabrPart)
     for format_init_part in sabr_stream.processor.initialized_formats.values():
         format_init_part.consumed_ranges.clear()
 

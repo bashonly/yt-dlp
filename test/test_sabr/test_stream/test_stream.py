@@ -1,5 +1,6 @@
 from __future__ import annotations
 import io
+from unittest.mock import MagicMock
 import protobug
 import pytest
 
@@ -30,13 +31,17 @@ from yt_dlp.extractor.youtube._streaming.sabr.exceptions import (
 from yt_dlp.extractor.youtube._streaming.ump import UMPPartId, UMPPart
 from yt_dlp.networking.exceptions import TransportError
 
-from yt_dlp.extractor.youtube._streaming.sabr.models import AudioSelector, VideoSelector, ConsumedRange
+from yt_dlp.extractor.youtube._streaming.sabr.models import (
+    AudioSelector,
+    VideoSelector,
+    ConsumedRange,
+    ReloadConfigReason,
+)
 from yt_dlp.extractor.youtube._streaming.sabr.part import (
     FormatInitializedSabrPart,
-    RefreshPlayerResponseSabrPart,
     MediaSegmentInitSabrPart,
 )
-from yt_dlp.extractor.youtube._streaming.sabr.stream import SabrStream
+from yt_dlp.extractor.youtube._streaming.sabr.stream import SabrStream, ReloadConfigRequest
 from yt_dlp.extractor.youtube._proto.videostreaming import (
     FormatId,
     BufferedRange,
@@ -872,8 +877,8 @@ class TestStream:
         with pytest.raises(BroadcastIdChanged, match=r'Broadcast ID changed from 1 to 2\.'):
             sabr_stream.url = 'https://live.googlevideo.com/sabr?sabr=1&source=yt_live_broadcast&id=xyz.2'
 
-    def test_reload_player_response(self, logger, client_info):
-        # Should yield a RefreshPlayerResponseSabrPart when instructed to reload the player response
+    def test_reload_player_response(self, logger, client_info, reload_callback_response):
+        # Should reload config when instructed to reload the player response
         def inject_reload_player_response(parts, vpabr, url, request_number):
             if request_number == 1:
                 payload = protobug.dumps(ReloadPlayerResponse(
@@ -889,20 +894,33 @@ class TestStream:
                 ]
             return parts
 
+        reload_config_callback = MagicMock()
+        reload_config_callback.side_effect = lambda _: reload_callback_response
+
         sabr_stream, _, _ = setup_sabr_stream_av(
             client_info=client_info,
             logger=logger,
             sabr_response_processor=CustomAVProfile({'custom_parts_function': inject_reload_player_response}),
+            reload_callback=reload_config_callback,
         )
-        # Retrieve parts until we get a RefreshPlayerResponseSabrPart
-        refresh_part = None
-        for part in sabr_stream.iter_parts():
-            if isinstance(part, RefreshPlayerResponseSabrPart):
-                refresh_part = part
-                break
-        assert refresh_part is not None
-        assert refresh_part.reason == RefreshPlayerResponseSabrPart.Reason.SABR_RELOAD_PLAYER_RESPONSE
-        assert refresh_part.reload_playback_token == 'test token'
+
+        assert sabr_stream.url != reload_callback_response.server_abr_streaming_url
+        assert sabr_stream.processor.video_playback_ustreamer_config != reload_callback_response.video_playback_ustreamer_config
+        assert sabr_stream.processor.client_info != reload_callback_response.client_info
+        assert sabr_stream.processor.po_token != reload_callback_response.po_token
+
+        # Retrieve parts until the callback is called
+        part_iter = sabr_stream.iter_parts()
+        while not reload_config_callback.called:
+            next(part_iter)
+
+        reload_config_callback.assert_called_with(
+            ReloadConfigRequest(reason=ReloadConfigReason.SABR_RELOAD_PLAYER_RESPONSE, reload_playback_token='test token'))
+
+        assert sabr_stream.url == reload_callback_response.server_abr_streaming_url
+        assert sabr_stream.processor.video_playback_ustreamer_config == reload_callback_response.video_playback_ustreamer_config
+        assert sabr_stream.processor.client_info == reload_callback_response.client_info
+        assert sabr_stream.processor.po_token == reload_callback_response.po_token
 
     def test_nonlive_segment_mismatch_error(self, logger, client_info):
         # Should raise an error on segment sequence mismatch for non-live streams

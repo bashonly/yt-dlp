@@ -62,18 +62,6 @@ class PoTokenStatusSabrPart(SabrPart):
 
 
 @dataclasses.dataclass
-class RefreshPlayerResponseSabrPart(SabrPart):
-
-    class Reason(enum.Enum):
-        UNKNOWN = enum.auto()
-        SABR_URL_EXPIRY = enum.auto()
-        SABR_RELOAD_PLAYER_RESPONSE = enum.auto()
-
-    reason: Reason
-    reload_playback_token: str = None
-
-
-@dataclasses.dataclass
 class MediaSeekSabrPart(SabrPart):
     # Lets the consumer know the media sequence for a format may change
     class Reason(enum.Enum):

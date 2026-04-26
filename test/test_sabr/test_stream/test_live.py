@@ -18,7 +18,6 @@ from test.test_sabr.test_stream.helpers import (
     DEFAULT_VIDEO_FORMAT,
     VALID_LIVE_PREMIERE_URL,
 )
-from yt_dlp.extractor.youtube._proto.videostreaming.reload_player_response import ReloadPlaybackParams
 from yt_dlp.extractor.youtube._streaming.sabr.exceptions import (
     StreamStallError,
     BroadcastIdChanged,
@@ -28,19 +27,19 @@ from yt_dlp.extractor.youtube._streaming.ump import UMPPartId, UMPPart
 from yt_dlp.extractor.youtube._streaming.sabr.models import ConsumedRange, AudioSelector, VideoSelector
 from yt_dlp.extractor.youtube._streaming.sabr.part import (
     FormatInitializedSabrPart,
-    RefreshPlayerResponseSabrPart,
     MediaSegmentInitSabrPart,
     MediaSeekSabrPart,
     LiveStateSabrPart,
+    PoTokenStatusSabrPart,
 )
 from yt_dlp.extractor.youtube._streaming.sabr.stream import Heartbeat
 from yt_dlp.extractor.youtube._proto.videostreaming import (
-    ReloadPlayerResponse,
     VideoPlaybackAbrRequest,
     LiveMetadata,
     SabrSeek,
     BufferedRange,
     TimeRange,
+    StreamProtectionStatus,
 )
 from yt_dlp.networking.exceptions import TransportError, HTTPError
 
@@ -798,16 +797,17 @@ class TestLiveStreamStall:
             # Stop returning new segments after 8 requests
             if vpabr.client_abr_state.player_time_ms >= consumed_ranges[0].start_time_ms:
                 stall_count += 1
-                # Send back RELOAD_PLAYER_RESPONSE parts so we can update consumed ranges
-                rpr = protobug.dumps(ReloadPlayerResponse(
-                    reload_playback_params=ReloadPlaybackParams(token='test token'),
+                # Send back STREAM_PROTECTION_STATUS parts so we can update consumed ranges
+                # (these tests do not use SPS elsewhere)
+                sps = protobug.dumps(StreamProtectionStatus(
+                    status=StreamProtectionStatus.Status.OK,
                 ))
 
                 return [
                     UMPPart(
-                        part_id=UMPPartId.RELOAD_PLAYER_RESPONSE,
-                        size=len(rpr),
-                        data=io.BytesIO(rpr),
+                        part_id=UMPPartId.STREAM_PROTECTION_STATUS,
+                        size=len(sps),
+                        data=io.BytesIO(sps),
                     ),
                 ]
             return parts
@@ -835,7 +835,7 @@ class TestLiveStreamStall:
 
         parts = []
         for part in sabr_stream.iter_parts():
-            if stall_count == max_empty_requests and isinstance(part, RefreshPlayerResponseSabrPart):
+            if stall_count == max_empty_requests and isinstance(part, PoTokenStatusSabrPart):
                 sabr_stream.processor.initialized_formats[
                     str(format_init_part.format_id)].consumed_ranges = consumed_ranges
             parts.append(part)

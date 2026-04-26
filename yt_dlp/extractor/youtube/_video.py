@@ -3297,7 +3297,6 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             self.report_warning(msg, only_once=True)
 
     def _reload_sabr_config(self, video_id, client_name, reload_playback_token):
-        # xxx: may also update client info?
         url = 'https://www.youtube.com/watch?v=' + video_id
         _, _, _, _, prs, player_url = self._initial_extract(
             url, {}, url, self._webpage_client, video_id, reload_playback_token)
@@ -3311,9 +3310,9 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             if f.get('protocol') == 'sabr':
                 sabr_config = f['_sabr_config']
                 if sabr_config['client_name'] == client_name:
-                    return f['url'], sabr_config['video_playback_ustreamer_config']
+                    return f.get('url'), sabr_config
 
-        raise ExtractorError('No SABR formats found', expected=True)
+        raise ExtractorError(f'No SABR formats found for client {client_name}', expected=True)
 
     def _extract_formats_and_subtitles(self, video_id, player_responses, player_url, live_status, duration):
         CHUNK_SIZE = 10 << 20

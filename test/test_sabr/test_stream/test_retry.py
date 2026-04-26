@@ -1,7 +1,7 @@
 from __future__ import annotations
 import io
 import time
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 import protobug
 import pytest
 import urllib.parse
@@ -21,7 +21,6 @@ from yt_dlp.extractor.youtube._streaming.sabr.exceptions import SabrStreamError
 from yt_dlp.extractor.youtube._streaming.ump import UMPPartId, UMPPart
 from yt_dlp.networking.exceptions import TransportError, HTTPError, RequestError
 
-from yt_dlp.extractor.youtube._streaming.sabr.part import RefreshPlayerResponseSabrPart
 from yt_dlp.extractor.youtube._proto.videostreaming import SabrError
 
 
@@ -259,14 +258,18 @@ class TestRequestRetries:
         time.sleep.assert_called_with(2.5)
 
     def test_expiry_on_retry(self, logger, client_info):
-        # Should check for expiry before retrying and yield RefreshPlayerResponseSabrPart if within threshold
+        # Should check for expiry before retrying and call the callback if within threshold
         expires_at = int(time.time() + 30)  # 30 seconds from now
+        reload_config_callback = MagicMock()
+        reload_config_callback.return_value = None
+
         sabr_stream, _, __ = setup_sabr_stream_av(
             sabr_response_processor=RequestRetryAVProfile({'mode': 'transport', 'rn': list(range(7))}),
             client_info=client_info,
             logger=logger,
             url=f'https://expire.googlevideo.com/sabr?sabr=1&expire={int(expires_at)}',
             http_retries=5,
+            reload_callback=reload_config_callback,
             # By default, expiry threshold is 60 seconds
         )
 
@@ -276,10 +279,8 @@ class TestRequestRetries:
             for part in sabr_stream.iter_parts():
                 parts.append(part)
 
-        # Should get 6 RefreshPlayerResponseSabrPart parts before failing
-        # (If the check was AFTER the retry was triggered, we would only get 1)
-        refresh_parts = [part for part in parts if isinstance(part, RefreshPlayerResponseSabrPart)]
-        assert len(refresh_parts) == 6
+        # Should have called the callback 6 times
+        assert reload_config_callback.call_count == 6
 
     def test_increment_rn_on_retry(self, logger, client_info):
         # Should increment the "rn" parameter on each retry request

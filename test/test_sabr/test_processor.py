@@ -3108,13 +3108,16 @@ class TestMedia:
 
         assert isinstance(result, ProcessMediaResult)
         assert isinstance(result.sabr_part, MediaSegmentDataSabrPart)
+        assert isinstance(result.sabr_part.data, io.BufferedIOBase)
+        assert result.sabr_part.data.read() == example_payload
+        result.sabr_part.data = b''  # allow comparison
         assert result.sabr_part == MediaSegmentDataSabrPart(
             format_selector=selector,
             format_id=selector.format_ids[0],
             sequence_number=1,
             is_init_segment=False,
             total_segments=fim.total_segments,
-            data=example_payload,
+            data=b'',
             content_length=len(example_payload),
             segment_start_bytes=0,
         )
@@ -3128,13 +3131,16 @@ class TestMedia:
 
         assert isinstance(result, ProcessMediaResult)
         assert isinstance(result.sabr_part, MediaSegmentDataSabrPart)
+        assert isinstance(result.sabr_part.data, io.BufferedIOBase)
+        assert result.sabr_part.data.read() == example_payload
+        result.sabr_part.data = b''
         assert result.sabr_part == MediaSegmentDataSabrPart(
             format_selector=selector,
             format_id=selector.format_ids[0],
             sequence_number=1,
             is_init_segment=False,
             total_segments=fim.total_segments,
-            data=example_payload,
+            data=b'',
             content_length=len(example_payload),
             segment_start_bytes=len(example_payload),
         )
@@ -3222,13 +3228,16 @@ class TestMedia:
 
         assert isinstance(result, ProcessMediaResult)
         assert isinstance(result.sabr_part, MediaSegmentDataSabrPart)
+        assert isinstance(result.sabr_part.data, io.BufferedIOBase)
+        assert result.sabr_part.data.read() == example_payload
+        result.sabr_part.data = b''
         assert result.sabr_part == MediaSegmentDataSabrPart(
             format_selector=selector,
             format_id=selector.format_ids[0],
             sequence_number=None,
             is_init_segment=True,  # Init segment should be True
             total_segments=fim.total_segments,
-            data=example_payload,
+            data=b'',
             content_length=len(example_payload),
             segment_start_bytes=0,
         )

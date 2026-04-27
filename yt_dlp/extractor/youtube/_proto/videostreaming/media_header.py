@@ -9,7 +9,7 @@ from ..innertube import CompressionAlgorithm
 
 @protobug.message
 class MediaHeader:
-    header_id: protobug.UInt32 | None = protobug.field(1, default=None)
+    header_id: protobug.UInt32 = protobug.field(1, default=None)
     video_id: protobug.String | None = protobug.field(2, default=None)
     itag: protobug.Int32 | None = protobug.field(3, default=None)
     last_modified: protobug.UInt64 | None = protobug.field(4, default=None)

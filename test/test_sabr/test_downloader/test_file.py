@@ -1,4 +1,5 @@
 import dataclasses
+import io
 from pathlib import Path
 import pytest
 from yt_dlp.utils._utils import DownloadError
@@ -122,6 +123,43 @@ class TestSequenceFile:
         backend.initialize_reader()
         data = backend.reader.read()
         assert data == GENERAL_SEGMENT_DATA + GENERAL_SEGMENT_DATA
+        backend.close()
+
+    @pytest.mark.parametrize(
+        'segment_memory_file_limit,segment_backend',
+        [
+            (None, MemoryFormatIOBackend),
+            (INIT_SEQUENCE_CONTENT_LENGTH - 1, DiskFormatIOBackend),  # disk backend: force disk by setting limit smaller than segment
+        ],
+        ids=['memory', 'disk'],
+    )
+    def test_write_bytesio_segment_data(self, fd, filename, init_sequence, init_segment, backend, segment_memory_file_limit, segment_backend):
+        # sanity test as we use file object in media segments
+        sequence_file = SequenceFile(
+            fd,
+            format_filename=filename,
+            sequence=init_sequence,
+            segment_memory_file_limit=segment_memory_file_limit,
+        )
+
+        sequence_file.initialize_segment(init_segment)
+        assert isinstance(sequence_file.current_segment.file, segment_backend)
+
+        data = io.BytesIO(INIT_SEGMENT_DATA)
+        sequence_file.write_segment_data(data, init_segment.segment_id)
+
+        assert sequence_file.current_segment.current_length == INIT_SEQUENCE_CONTENT_LENGTH
+        assert data.tell() == INIT_SEQUENCE_CONTENT_LENGTH
+
+        sequence_file.end_segment(init_segment.segment_id)
+        assert sequence_file.sequence.sequence_content_length == INIT_SEQUENCE_CONTENT_LENGTH
+
+        sequence_file.close()
+        backend.initialize_writer()
+        sequence_file.read_into(backend)
+        backend.close()
+        backend.initialize_reader()
+        assert backend.reader.read() == INIT_SEGMENT_DATA
         backend.close()
 
     @pytest.mark.parametrize(
@@ -757,3 +795,40 @@ class TestSegmentFile:
         assert new_segment_file.exists() is False
         assert Path(new_segment_file.file.filename).exists() is False
         assert Path(segment_file.file.filename).exists() is False
+
+    @pytest.mark.parametrize(
+        'memory_file_limit,backend_class',
+        [
+            (None, MemoryFormatIOBackend),
+            (INIT_SEQUENCE_CONTENT_LENGTH - 1, DiskFormatIOBackend),
+        ],
+        ids=['memory', 'disk'],
+    )
+    def test_write_bytesio(self, fd, filename, init_segment, backend, memory_file_limit, backend_class):
+        # sanity test as we use file object in media segments
+        segment_file = SegmentFile(
+            fd,
+            format_filename=filename,
+            segment=init_segment,
+            memory_file_limit=memory_file_limit,
+        )
+        assert isinstance(segment_file.file, backend_class)
+
+        data = io.BytesIO(INIT_SEGMENT_DATA)
+        segment_file.write(data)
+
+        assert segment_file.current_length == INIT_SEQUENCE_CONTENT_LENGTH
+        assert data.tell() == INIT_SEQUENCE_CONTENT_LENGTH
+
+        segment_file.finish_write()
+        assert segment_file.exists() is True
+
+        backend.initialize_writer()
+        segment_file.read_into(backend)
+        backend.close()
+        backend.initialize_reader()
+        assert backend.reader.read() == INIT_SEGMENT_DATA
+        backend.close()
+
+        segment_file.remove()
+        assert segment_file.exists() is False

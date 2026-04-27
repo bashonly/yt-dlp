@@ -331,10 +331,9 @@ class SabrFD(FileDownloader):
         self._prepare_multiline_status(len(writers) + 1)
 
         try:
-            total_bytes = 0
+            total_bytes = 0  # used for --test
             for part in stream:
                 if is_test and total_bytes >= self._TEST_FILE_SIZE:
-                    stream.close()
                     break
 
                 elif isinstance(part, FormatInitializedSabrPart):
@@ -369,7 +368,7 @@ class SabrFD(FileDownloader):
                     writer.initialize_segment(part)
 
                 elif isinstance(part, MediaSegmentDataSabrPart):
-                    total_bytes += len(part.data)  # TODO: not reliable
+                    total_bytes += part.content_length
                     writer = writers.get(part.format_selector.display_name)
                     if not writer:
                         self.report_warning(f'Unknown data format selector: {part.format_selector}')
@@ -413,6 +412,7 @@ class SabrFD(FileDownloader):
                 writer.finish()
         finally:
             # TODO: for livestreams, since we cannot resume them, should we finish the writers?
+            stream.close()
             for writer in writers.values():
                 writer.close()
 

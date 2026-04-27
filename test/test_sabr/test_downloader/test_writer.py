@@ -1,3 +1,4 @@
+import io
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -108,7 +109,7 @@ class TestSabrFDFormatWriter:
             format_id,
             is_init_segment=True,
             total_segments=2,
-            data=INIT_DATA,
+            data=io.BytesIO(INIT_DATA),
         ))
         writer.end_segment(make_end_part(format_selector, format_id, is_init_segment=True, total_segments=2))
 
@@ -125,7 +126,7 @@ class TestSabrFDFormatWriter:
             format_id,
             sequence_number=1,
             total_segments=2,
-            data=SEGMENT_ONE_DATA,
+            data=io.BytesIO(SEGMENT_ONE_DATA),
         ))
         writer.end_segment(make_end_part(format_selector, format_id, sequence_number=1, total_segments=2))
 
@@ -142,7 +143,7 @@ class TestSabrFDFormatWriter:
             format_id,
             sequence_number=2,
             total_segments=2,
-            data=SEGMENT_TWO_DATA,
+            data=io.BytesIO(SEGMENT_TWO_DATA),
         ))
         writer.end_segment(make_end_part(format_selector, format_id, sequence_number=2, total_segments=2))
 
@@ -180,7 +181,7 @@ class TestSabrFDFormatWriter:
             format_id,
             sequence_number=1,
             total_segments=2,
-            data=SEGMENT_ONE_DATA,
+            data=io.BytesIO(SEGMENT_ONE_DATA),
         ))
         writer.end_segment(make_end_part(format_selector, format_id, sequence_number=1, total_segments=2))
 
@@ -197,7 +198,7 @@ class TestSabrFDFormatWriter:
             format_id,
             sequence_number=2,
             total_segments=2,
-            data=SEGMENT_TWO_DATA,
+            data=io.BytesIO(SEGMENT_TWO_DATA),
         ))
         writer.end_segment(make_end_part(format_selector, format_id, sequence_number=2, total_segments=2))
 
@@ -235,7 +236,7 @@ class TestSabrFDFormatWriter:
             format_selector,
             format_id,
             sequence_number=1,
-            data=SEGMENT_ONE_DATA,
+            data=io.BytesIO(SEGMENT_ONE_DATA),
         ))
         writer.end_segment(make_end_part(format_selector, format_id, sequence_number=1))
 
@@ -278,7 +279,7 @@ class TestSabrFDFormatWriter:
             format_id,
             sequence_number=1,
             total_segments=3,
-            data=SEGMENT_ONE_DATA,
+            data=io.BytesIO(SEGMENT_ONE_DATA),
         ))
         writer.end_segment(make_end_part(format_selector, format_id, sequence_number=1, total_segments=3))
 
@@ -321,7 +322,7 @@ class TestSabrFDFormatWriter:
                 format_selector,
                 format_id,
                 sequence_number=1,
-                data=SEGMENT_ONE_DATA,
+                data=io.BytesIO(SEGMENT_ONE_DATA),
             ))
 
         writer.close()
@@ -377,7 +378,7 @@ class TestSabrFDFormatWriter:
                 format_selector,
                 format_id,
                 sequence_number=1,
-                data=SEGMENT_ONE_DATA,
+                data=io.BytesIO(SEGMENT_ONE_DATA),
             ))
 
         writer.close()
@@ -451,7 +452,7 @@ class TestSabrFDFormatWriter:
             format_id=format_id,
             sequence_number=2,
             total_segments=2,
-            data=SEGMENT_TWO_DATA,
+            data=io.BytesIO(SEGMENT_TWO_DATA),
         ))
         writer.end_segment(make_end_part(
             format_selector=AudioSelector(display_name='audio', format_ids=[format_id]),
@@ -505,7 +506,7 @@ class TestSabrFDFormatWriter:
             format_selector=AudioSelector(display_name='audio', format_ids=[format_id]),
             format_id=format_id,
             sequence_number=1,
-            data=SEGMENT_ONE_DATA,
+            data=io.BytesIO(SEGMENT_ONE_DATA),
         ))
         writer.end_segment(make_end_part(
             format_selector=AudioSelector(display_name='audio', format_ids=[format_id]),
@@ -548,7 +549,7 @@ class TestSabrFDFormatWriter:
             format_selector=AudioSelector(display_name='audio', format_ids=[format_id]),
             format_id=format_id,
             sequence_number=1,
-            data=SEGMENT_ONE_DATA,
+            data=io.BytesIO(SEGMENT_ONE_DATA),
         ))
         writer.end_segment(make_end_part(
             format_selector=AudioSelector(display_name='audio', format_ids=[format_id]),
@@ -586,7 +587,7 @@ class TestSabrFDFormatWriter:
             format_selector=AudioSelector(display_name='audio', format_ids=[format_id]),
             format_id=format_id,
             sequence_number=1,
-            data=SEGMENT_ONE_DATA,
+            data=io.BytesIO(SEGMENT_ONE_DATA),
         ))
         writer.end_segment(make_end_part(
             format_selector=AudioSelector(display_name='audio', format_ids=[format_id]),
@@ -616,7 +617,7 @@ class TestSabrFDFormatWriter:
             format_id,
             sequence_number=1,
             total_segments=3,
-            data=SEGMENT_ONE_DATA,
+            data=io.BytesIO(SEGMENT_ONE_DATA),
         ))
 
         progress_state, progress_info = fd._hook_progress.call_args.args
@@ -743,7 +744,7 @@ class TestSabrFDFormatWriter:
             format_selector,
             format_id,
             sequence_number=10,
-            data=SEGMENT_ONE_DATA,
+            data=io.BytesIO(SEGMENT_ONE_DATA),
         ))
         writer.end_segment(make_end_part(format_selector, format_id, sequence_number=10))
 
@@ -760,7 +761,7 @@ class TestSabrFDFormatWriter:
             format_selector,
             format_id,
             sequence_number=12,
-            data=SEGMENT_TWO_DATA[:4],
+            data=io.BytesIO(SEGMENT_TWO_DATA[:4]),
         ))
 
         writer.initialize_segment(make_init_part(
@@ -807,7 +808,7 @@ class TestSabrFDFormatWriter:
             format_id,
             sequence_number=1,
             total_segments=1,
-            data=SEGMENT_ONE_DATA[:4],
+            data=io.BytesIO(SEGMENT_ONE_DATA[:4]),
         ))
 
         assert writer.downloaded_bytes == 4
@@ -834,7 +835,7 @@ class TestSabrFDFormatWriter:
             format_id,
             sequence_number=1,
             total_segments=1,
-            data=SEGMENT_ONE_DATA,
+            data=io.BytesIO(SEGMENT_ONE_DATA),
         ))
         writer.end_segment(make_end_part(format_selector, format_id, sequence_number=1, total_segments=1))
 
@@ -872,7 +873,7 @@ class TestSabrFDFormatWriter:
             format_id,
             sequence_number=1,
             total_segments=1,
-            data=SEGMENT_ONE_DATA,
+            data=io.BytesIO(SEGMENT_ONE_DATA),
         ))
         writer.end_segment(make_end_part(format_selector, format_id, sequence_number=1, total_segments=1))
 

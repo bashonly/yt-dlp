@@ -247,9 +247,19 @@ class TestUMPDecoder:
         assert part1.data.closed
         assert part2.data.read() == self.EXAMPLE_PART_DATA[1]['part_data_bytes']
 
-    def test_part_closed_externally_decoder_seeks(self):
+    def test_part_closed_externally_decoder_seeks(self, monkeypatch):
         # When the consumer closes a part stream early without fully reading it or draining it,
         # the decoder must seek (read) past the remaining bytes to re-align for the next part.
+        discard_called = 0
+        orig_discard = UMPPartStream.discard
+
+        def discard_spy(part_stream):
+            nonlocal discard_called
+            discard_called += 1
+            return orig_discard(part_stream)
+
+        monkeypatch.setattr(UMPPartStream, 'discard', discard_spy)
+
         mock_file = io.BytesIO(self.COMBINED_PART_DATA)
         decoder = UMPDecoder(mock_file)
         part_iter = decoder.iter_parts()
@@ -267,6 +277,7 @@ class TestUMPDecoder:
 
         part2 = next(part_iter)
         assert part2.part_id == self.EXAMPLE_PART_DATA[1]['part_id']
+        assert discard_called == 1
 
     def test_decoder_seek_eof(self):
         # If the decoder needs to seek past the remaining bytes of a part due to an external close, but hits EOF,
@@ -409,6 +420,39 @@ class TestUMPPartStream:
         assert fp.tell() == 6
         assert data.remaining == 0
 
+    def test_discard(self):
+        fp = io.BytesIO(b'abcdefxyz_')
+        data = UMPPartStream(fp, 6)
+        data.discard()
+        assert data.tell() == 6
+        assert data.remaining == 0
+        assert data.read() == b''
+        assert fp.tell() == 6
+        assert fp.read() == b'xyz_'
+
+    def test_discard_after_partial(self):
+        fp = io.BytesIO(b'abcdefxyz_')
+        data = UMPPartStream(fp, 6)
+        assert data.read(2) == b'ab'
+        data.discard()
+        assert data.tell() == 6
+        assert data.remaining == 0
+        assert data.read() == b''
+        assert fp.tell() == 6
+        assert fp.read() == b'xyz_'
+
+    def test_discard_closed(self):
+        data = UMPPartStream(io.BytesIO(b'abc'), 3)
+        data.close()
+        with pytest.raises(ValueError, match='I/O operation on closed file'):
+            data.discard()
+
+    def test_discard_eof_error(self):
+        data = UMPPartStream(_UnexpectedEOFBytesIO(b'abcdef', max_read=2), 3)
+        with pytest.raises(EOFError, match=r'Unexpected EOF while reading part data \(expected 3, got 2\)'):
+            data.discard()
+        data.close()
+
     def test_readinto(self):
         fp = io.BytesIO(b'abcdefxyz_')
         data = UMPPartStream(fp, 6)
@@ -446,6 +490,14 @@ class TestUMPPartStream:
         data.close()
         data.close()
         assert data.closed
+
+    def test_close_clears_buffer(self):
+        fp = io.BytesIO(b'abcdef')
+        data = UMPPartStream(fp, 6)
+        data.drain()
+        assert data._buffer is not None
+        data.close()
+        assert data._buffer is None
 
     def test_close_not_close_underlying(self):
         fp = io.BytesIO(b'abcdef')

@@ -136,6 +136,23 @@ class UMPPartStream(io.BufferedIOBase):
         self._remaining = 0
         self._buffer = io.BytesIO(data)
 
+    def discard(self):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
+        if self._remaining <= 0:
+            return
+        while self._remaining > 0:
+            chunk_size = min(self._remaining, io.DEFAULT_BUFFER_SIZE)
+            data = self._read_fp(chunk_size)
+            if not data:
+                break
+            self._remaining -= len(data)
+            self._consumed += len(data)
+
+    def close(self):
+        self._buffer = None
+        super().close()
+
 
 class UMPDecoder:
     def __init__(self, fp: io.BufferedIOBase):
@@ -168,7 +185,7 @@ class UMPDecoder:
                 # This is for the case the part stream was closed without draining
                 if part_stream.remaining > 0:
                     drain_stream = UMPPartStream(self.fp, part_stream.remaining)
-                    drain_stream.drain()
+                    drain_stream.discard()
                     drain_stream.close()
 
 

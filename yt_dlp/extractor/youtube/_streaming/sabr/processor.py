@@ -429,7 +429,6 @@ class SabrProcessor:
 
         segment_start_bytes = segment.received_data_length
         segment.received_data_length += content_length
-
         if not (segment.consumed or segment.initialized_format.discard):
             result.sabr_part = MediaSegmentDataSabrPart(
                 format_selector=segment.initialized_format.format_selector,
@@ -437,7 +436,7 @@ class SabrProcessor:
                 sequence_number=segment.sequence_number,
                 is_init_segment=segment.is_init_segment,
                 total_segments=segment.initialized_format.last_segment_number,
-                data=data.read(),
+                data=data,
                 content_length=content_length,
                 segment_start_bytes=segment_start_bytes,
             )

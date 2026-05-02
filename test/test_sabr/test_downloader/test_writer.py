@@ -310,7 +310,7 @@ class TestSabrFDFormatWriter:
 
         assert Path(filename).read_bytes() == SEGMENT_ONE_DATA + SEGMENT_THREE_DATA
         fd.report_warning.assert_called_once()
-        assert 'Disjointed sequences found in SABR format' in fd.report_warning.call_args.args[0]
+        assert 'Missing segments detected in format 251: 2-3' in fd.report_warning.call_args.args[0]
 
     def test_sequence_file_not_found_write(self, fd, filename, info_dict, format_id, format_selector):
         # Should raise an error if attempting to write segment data without initializing it first

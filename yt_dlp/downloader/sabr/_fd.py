@@ -388,16 +388,14 @@ class SabrFD(FileDownloader):
                         self._log_dvr_window_availability(part.available_dvr_window_ms, live_from_start)
                         logged_dvr_message = True
 
-            for writer in writers.values():
-                writer.finish()
+            self._finish_formats(writers, is_live=stream.processor.is_live)
         except BroadcastIdChanged as e:
             # Core does not currently support multiple broadcasts under the same video ID.
             self.write_debug(f'[SABR Debug Info]: {stream.create_stats_str()}')
             self.write_debug(f'Got error: {e!r}')
             self.report_warning(
                 'The current stream download is complete, however a new stream may have started under the same video ID.')
-            for writer in writers.values():
-                writer.finish()
+            self._finish_formats(writers, is_live=stream.processor.is_live)
         except SabrStreamError as e:
             self.write_debug(f'[SABR Debug Info]: {stream.create_stats_str()}')
             raise DownloadError(str(e)) from e
@@ -409,13 +407,40 @@ class SabrFD(FileDownloader):
             ):
                 raise
             self.to_screen('Interrupted by user')
-            for writer in writers.values():
-                writer.finish()
+            self._finish_formats(writers, is_live=stream.processor.is_live)
         finally:
             # TODO: for livestreams, since we cannot resume them, should we finish the writers?
             stream.close()
             for writer in writers.values():
                 writer.close()
+
+    def _count_writer_segments(self, writer):
+        return sum(
+            sequence.last_segment.sequence_number - sequence.first_segment.sequence_number + 1
+            for sequence in writer.state.sequences)
+
+    def _finish_formats(self, writers, is_live=False):
+        # Live formats should have the same segment count.
+        # If there is a mismatch, likely one format is missing segments.
+        # This usually only happens on resuming a livestream download, such as:
+        # - when the stream has no DVR
+        # - downloading from the start on a 12+ hour stream.
+        if len(writers) > 1 and is_live:
+            expected_segment_count = None
+            for writer in writers.values():
+                segment_count = self._count_writer_segments(writer)
+                if expected_segment_count is None:
+                    expected_segment_count = segment_count
+                    continue
+                if segment_count != expected_segment_count:
+                    self.report_warning(
+                        'Detected a segment alignment mismatch across downloaded formats. '
+                        'The formats may be out of sync in the merged file.',
+                        only_once=True)
+                    break
+
+        for writer in writers.values():
+            writer.finish()
 
     def _log_dvr_window_availability(self, available_dvr_window_ms, live_from_start):
         hours = math.ceil(available_dvr_window_ms / (3600 * 1000))

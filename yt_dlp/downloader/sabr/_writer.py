@@ -346,13 +346,14 @@ class SabrFDFormatWriter:
             self._init_sequence.read_into(self.file)
             self._init_sequence.close()
 
-        # TODO: handling of disjointed segments
         previous_seq_number = None
         for sequence_file in sorted(
                 (sf for sf in self._sequence_files if sf.sequence.first_segment),
                 key=lambda s: s.sequence.first_segment.sequence_number):
             if previous_seq_number and previous_seq_number + 1 != sequence_file.sequence.first_segment.sequence_number:
-                self.fd.report_warning(f'Disjointed sequences found in SABR format {self.info_dict.get("format_id")}')
+                self.fd.report_warning(
+                    f'Missing segments detected in format {self.info_dict.get("format_id")}: '
+                    f'{previous_seq_number + 1}-{sequence_file.sequence.first_segment.sequence_number}')
             previous_seq_number = sequence_file.sequence.last_segment.sequence_number
             sequence_file.read_into(self.file)
             sequence_file.close()

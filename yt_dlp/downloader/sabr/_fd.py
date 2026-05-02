@@ -185,15 +185,16 @@ class SabrFD(FileDownloader):
             elif status == 'LIVE_STREAM_OFFLINE':
                 display_endscreen = traverse_obj(lsr, ('displayEndscreen', {bool}))
                 offline_slate = traverse_obj(lsr, 'offlineSlate')
+                # actionButtons used instead of displayEndscreen on some clients (e.g. mweb).
+                offline_slate_actions = traverse_obj(offline_slate, ('liveStreamOfflineSlateRenderer', 'actionButtons'))
 
                 # Streamer disconnected - may come back online shortly
-                if offline_slate and not display_endscreen:
+                if offline_slate and not display_endscreen and not offline_slate_actions:
                     logger.debug(
                         'Streamer disconnected - live stream is offline. '
                         'Considering as live until terminal status is reached. ')
                     return Heartbeat(is_live=True, broadcast_id=broadcast_id, video_id=video_id)
-
-                elif lsr and display_endscreen:
+                elif lsr and (display_endscreen or offline_slate_actions):
                     # Otherwise, consider live stream offline
                     logger.debug('Live stream is offline')
                     return Heartbeat(is_live=False, broadcast_id=broadcast_id, video_id=video_id)

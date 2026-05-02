@@ -3690,6 +3690,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             def process_sabr_formats_and_subtitles():
                 proto = 'sabr'
                 server_abr_streaming_url = streaming_data.get('serverAbrStreamingUrl')
+                if not server_abr_streaming_url:
+                    return
+                # web_creator client sometimes serves the url on c.youtube.com - SABR downloader only support googlevideo.com.
+                server_abr_streaming_url = server_abr_streaming_url.replace('.c.youtube.com/videoplayback', '.googlevideo.com/videoplayback')
                 query = parse_qs(server_abr_streaming_url)
 
                 # n challenge

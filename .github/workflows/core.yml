@@ -1,7 +1,9 @@
 name: Core Tests
 on:
   push:
+    branches: ['master']
     paths:
+      - pyproject.toml
       - .github/**
       - devscripts/**
       - test/**
@@ -12,7 +14,9 @@ on:
       - yt_dlp/extractor/common.py
       - yt_dlp/extractor/extractors.py
   pull_request:
+    branches: ['**']
     paths:
+      - pyproject.toml
       - .github/**
       - devscripts/**
       - test/**
@@ -31,7 +35,7 @@ concurrency:
 
 jobs:
   tests:
-    name: Core Tests
+    name: Core tests
     if: ${{ !contains(github.event.head_commit.message, ':ci skip') }}
     permissions:
       contents: read
@@ -66,7 +70,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install test requirements
-      run: python ./devscripts/install_deps.py --include-extra test --include-extra curl-cffi
+      run: python ./devscripts/install_deps.py --include-group test --include-extra curl-cffi
     - name: Run tests
       timeout-minutes: 15
       continue-on-error: False

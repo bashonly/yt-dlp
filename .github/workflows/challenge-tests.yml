@@ -79,9 +79,10 @@ jobs:
     - name: Install test requirements
       shell: bash
       run: |
-        python ./devscripts/install_deps.py --print --omit-default --include-group test > requirements.txt
-        python ./devscripts/install_deps.py --print -c certifi -c requests -c urllib3 -c yt-dlp-ejs >> requirements.txt
-        python -m pip install -U -r requirements.txt
+        python -m pip install -U --require-hashes -r "bundle/requirements/requirements-pip.txt"
+        python -m pip install -U --require-hashes -r "bundle/requirements/requirements-test.txt"
+        # TODO: generate a requirements-default.txt instead of relying on requirements-win-x86.txt
+        python -m pip install -U --require-hashes -r "bundle/requirements/requirements-win-x86.txt"
     - name: Run tests
       timeout-minutes: 15
       shell: bash

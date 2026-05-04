@@ -70,7 +70,11 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install test requirements
-      run: python ./devscripts/install_deps.py --include-group test --include-extra curl-cffi
+      run: |
+        python -m pip install -U --require-hashes -r "bundle/requirements/requirements-pip.txt"
+        python -m pip install -U --require-hashes -r "bundle/requirements/requirements-test.txt"
+        # TODO: generate a requirements-curl-cffi.txt instead of relying on requirements-win-x64.txt
+        python -m pip install -U --require-hashes -r "bundle/requirements/requirements-win-x64.txt"
     - name: Run tests
       timeout-minutes: 15
       continue-on-error: False

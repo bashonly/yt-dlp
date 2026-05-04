@@ -127,6 +127,15 @@ pyinstaller = [
 delocate = [
     "delocate>=0.13.0 ; sys_platform == 'darwin'",
 ]
+pyflakes = [
+    "pyflakes~=3.4.0",
+]
+pip = [
+    "pip",
+]
+uv = [
+    "uv>=0.10",
+]
 
 [project.urls]
 Documentation = "https://github.com/yt-dlp/yt-dlp#readme"

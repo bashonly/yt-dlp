@@ -73,23 +73,10 @@ class Target:
     omit_packages: list[str] = dataclasses.field(default_factory=list)
 
 
-LINUX_TARGET = Target(
-    extras=['default', 'curl-cffi', 'secretstorage'],
-    groups=['pyinstaller'],
-)
-WIN64_TARGET = Target(
-    extras=['default', 'curl-cffi'],
-)
-
 BUNDLE_TARGETS = {
-    'linux-x86_64': LINUX_TARGET,
-    'linux-aarch64': LINUX_TARGET,
-    'linux-armv7l': LINUX_TARGET,
-    'musllinux-x86_64': LINUX_TARGET,
-    'musllinux-aarch64': LINUX_TARGET,
-    'win-x64': WIN64_TARGET,
-    'win-arm64': WIN64_TARGET,
-    'win-x86': Target(extras=['default']),
+    'default': Target(extras=['default']),
+    'curl-cffi': Target(extras=['default', 'curl-cffi']),
+    'linux': Target(extras=['default', 'curl-cffi', 'secretstorage']),
     'macos': Target(
         extras=['default', 'curl-cffi'],
         # NB: Resolve delocate and PyInstaller together since they share dependencies

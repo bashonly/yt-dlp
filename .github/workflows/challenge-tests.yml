@@ -81,8 +81,7 @@ jobs:
       run: |
         python -m pip install -U --require-hashes -r "bundle/requirements/requirements-pip.txt"
         python -m pip install -U --require-hashes -r "bundle/requirements/requirements-test.txt"
-        # TODO: generate a requirements-default.txt instead of relying on requirements-win-x86.txt
-        python -m pip install -U --require-hashes -r "bundle/requirements/requirements-win-x86.txt"
+        python -m pip install -U --require-hashes -r "bundle/requirements/requirements-default.txt"
     - name: Run tests
       timeout-minutes: 15
       shell: bash

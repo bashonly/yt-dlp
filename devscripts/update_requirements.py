@@ -465,7 +465,9 @@ def update_ejs(
     return update_requirements(upgrade_only=PACKAGE_NAME, verify=verify)
 
 
-def update_protobug(verify: bool = False) -> dict[str, tuple[str | None, str | None]] | None:
+def update_protobug(
+    verify: bool = False,
+) -> dict[str, tuple[str, str] | tuple[str, None] | tuple[None, str]] | None:
     PACKAGE_NAME = 'protobug'
     PREFIX = f'    "{PACKAGE_NAME}=='
     LIBRARY_NAME = PACKAGE_NAME.replace('-', '_')
@@ -493,7 +495,7 @@ def update_protobug(verify: bool = False) -> dict[str, tuple[str | None, str | N
     version = info['tag_name']
     if version == current_version:
         print(f'{PACKAGE_NAME} is up to date! ({version})', file=sys.stderr)
-        return
+        return None
 
     print(f'Updating {PACKAGE_NAME} from {current_version} to {version}', file=sys.stderr)
     wheel_info = {}

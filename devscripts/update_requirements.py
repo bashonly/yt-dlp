@@ -74,9 +74,17 @@ class Target:
 
 
 BUNDLE_TARGETS = {
-    'default': Target(extras=['default']),
-    'curl-cffi': Target(extras=['default', 'curl-cffi']),
-    'linux': Target(extras=['default', 'curl-cffi', 'secretstorage']),
+    'default': Target(
+        extras=['default'],
+        # PyPy bundles cffi, which is a transitive dep of brotlicffi, which is only required for PyPy
+        prune_packages=['cffi'],
+    ),
+    'curl-cffi': Target(
+        extras=['default', 'curl-cffi'],
+    ),
+    'linux': Target(
+        extras=['default', 'curl-cffi', 'secretstorage'],
+    ),
     'macos': Target(
         extras=['default', 'curl-cffi'],
         # NB: Resolve delocate and PyInstaller together since they share dependencies
@@ -613,6 +621,22 @@ def update_requirements(
                 # NB: this depends on 'pyinstaller[asset_tag]' keys in WELLKNOWN_PACKAGES
                 all_updates.update({f'pyinstaller[{asset_tag}]': pyinstaller_diff})
 
+    # Generate new pinned extras; any updates to these are already recorded w/ uv.lock package diff
+    for pinned_name, extra_name in PINNED_EXTRAS.items():
+        extras[pinned_name] = run_uv_export(
+            extras=[extra_name],
+            bare=True,
+            # PyPy bundles cffi, which is a transitive dep of brotlicffi, which is only required for PyPy
+            prune_packages=['cffi'] if pinned_name == 'pin' else [],
+        ).splitlines()
+
+    # Write the finalized pyproject.toml
+    modify_and_write_pyproject(pyproject_text, table_name=EXTRAS_TABLE, table=extras)
+
+    # Generate/upgrade final lockfile that includes pinned extras
+    print(f'Running: uv lock {upgrade_arg}', file=sys.stderr)
+    run_process('uv', 'lock', upgrade_arg, env=env)
+
     # Export bundle requirements; any updates to these are already recorded w/ uv.lock package diff
     for target_suffix, target in BUNDLE_TARGETS.items():
         run_uv_export(
@@ -627,17 +651,6 @@ def update_requirements(
         run_uv_export(
             groups=[group],
             output_file=REQUIREMENTS_PATH / REQS_OUTPUT_TMPL.format(group))
-
-    # Generate new pinned extras; any updates to these are already recorded w/ uv.lock package diff
-    for pinned_name, extra_name in PINNED_EXTRAS.items():
-        extras[pinned_name] = run_uv_export(extras=[extra_name], bare=True).splitlines()
-
-    # Write the finalized pyproject.toml
-    modify_and_write_pyproject(pyproject_text, table_name=EXTRAS_TABLE, table=extras)
-
-    # Generate/upgrade final lockfile that includes pinned extras
-    print(f'Running: uv lock {upgrade_arg}', file=sys.stderr)
-    run_process('uv', 'lock', upgrade_arg, env=env)
 
     return all_updates
 

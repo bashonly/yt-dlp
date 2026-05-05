@@ -123,7 +123,7 @@ def get_groups(
     pyproject_toml: dict[str, typing.Any],
     *,
     resolve: bool = True,
-) -> dict[str, str | bool | int | float] | dict[str, list[str]]:
+) -> dict[str, list[str | dict[str, str]]]:
     groups = pyproject_toml.get('dependency-groups', {})
     if not resolve:
         return groups

@@ -627,7 +627,7 @@ def update_requirements(
             extras=[extra_name],
             bare=True,
             # PyPy bundles cffi, which is a transitive dep of brotlicffi, which is only required for PyPy
-            prune_packages=['cffi'] if pinned_name == 'pin' else [],
+            prune_packages=['cffi'] if extra_name == 'default' else [],
         ).splitlines()
 
     # Write the finalized pyproject.toml

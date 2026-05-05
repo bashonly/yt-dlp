@@ -119,11 +119,26 @@ WELLKNOWN_PACKAGES = {
 }
 
 
-def get_groups(
-    pyproject_toml: dict[str, typing.Any],
-    *,
-    resolve: bool = True,
-) -> dict[str, list[str | dict[str, str]]]:
+def get_extras(pyproject_toml: dict[str, typing.Any], *, resolve: bool = True) -> dict[str, typing.Any]:
+    project_table = pyproject_toml['project']
+    extras = project_table.get('optional-dependencies', {})
+    if not resolve:
+        return extras
+
+    project_name = project_table['name']
+    recursive_pattern = re.compile(rf'{project_name}\[(?P<extra_name>[^]]+)\]')
+
+    def yield_deps_from_extra(extra):
+        for dep in extra:
+            if mobj := recursive_pattern.fullmatch(dep):
+                yield from extras[mobj.group('extra_name')]
+            else:
+                yield dep
+
+    return {extra_name: list(yield_deps_from_extra(extra)) for extra_name, extra in extras.items()}
+
+
+def get_groups(pyproject_toml: dict[str, typing.Any], *, resolve: bool = True) -> dict[str, typing.Any]:
     groups = pyproject_toml.get('dependency-groups', {})
     if not resolve:
         return groups
@@ -563,7 +578,7 @@ def update_requirements(
 
     pyproject_text = PYPROJECT_PATH.read_text()
     pyproject_toml = parse_toml(pyproject_text)
-    extras = pyproject_toml['project']['optional-dependencies']
+    extras = get_extras(pyproject_toml)
 
     # Remove pinned extras so they don't muck up the lockfile during generation/upgrade
     for pinned_extra_name in PINNED_EXTRAS:

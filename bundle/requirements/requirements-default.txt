@@ -182,6 +182,10 @@ mutagen==1.47.0 \
     --hash=sha256:719fadef0a978c31b4cf3c956261b3c58b6948b32023078a2117b1de09f0fc99 \
     --hash=sha256:edd96f50c5907a9539d8e5bba7245f62c9f520aef333d13392a79a4f70aca719
     # via yt-dlp
+protobug==1.0.0 \
+    --hash=sha256:8b1b5cb3f4b2dd4fa0a6219ca770f687d0af32606d344ac7acedf00943f220c3 \
+    --hash=sha256:d6ea277e83e1a468b1c75a928fbba97e0cb10743df5558e8f326170984364fbb
+    # via yt-dlp
 pycryptodomex==3.23.0 \
     --hash=sha256:02d87b80778c171445d67e23d1caef279bf4b25c3597050ccd2e13970b57fd51 \
     --hash=sha256:06698f957fe1ab229a99ba2defeeae1c09af185baa909a31a5d1f9d42b1aaed6 \

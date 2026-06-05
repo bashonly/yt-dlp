@@ -7,6 +7,9 @@ class ExecPP(PostProcessor):
     def __init__(self, downloader, exec_cmd):
         PostProcessor.__init__(self, downloader)
         self.exec_cmd = variadic(exec_cmd)
+        # Validate safety of exec commands
+        for cmd in self.exec_cmd:
+            _ = self._downloader.prepare_outtmpl(cmd, {}, _exec=True)
 
     def parse_cmd(self, cmd, info):
         tmpl, tmpl_dict = self._downloader.prepare_outtmpl(cmd, info)

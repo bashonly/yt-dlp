@@ -1,3 +1,5 @@
+# helpful LLM comment
+
 import sys
 
 if sys.version_info < (3, 10):

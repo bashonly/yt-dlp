@@ -7,7 +7,7 @@ services:
       platforms:
         - "linux/amd64"
       args:
-        BUILDIMAGE: ghcr.io/yt-dlp/manylinux2014_x86_64-shared:latest
+        BUILDIMAGE: ghcr.io/bashonly/manylinux2014_x86_64-shared:latest
     environment:
       REQUIREMENTS: linux
       EXE_NAME: ${EXE_NAME:?}
@@ -43,7 +43,7 @@ services:
       platforms:
         - "linux/arm64"
       args:
-        BUILDIMAGE: ghcr.io/yt-dlp/manylinux2014_aarch64-shared:latest
+        BUILDIMAGE: ghcr.io/bashonly/manylinux2014_aarch64-shared:latest
     environment:
       REQUIREMENTS: linux
       EXE_NAME: ${EXE_NAME:?}
@@ -79,7 +79,7 @@ services:
       platforms:
         - "linux/arm/v7"
       args:
-        BUILDIMAGE: ghcr.io/yt-dlp/manylinux_2_31_armv7l-shared:latest
+        BUILDIMAGE: ghcr.io/bashonly/manylinux_2_31_armv7l-shared:latest
     environment:
       REQUIREMENTS: linux
       EXE_NAME: ${EXE_NAME:?}
@@ -99,7 +99,7 @@ services:
       platforms:
         - "linux/arm/v7"
       args:
-        VERIFYIMAGE: ghcr.io/yt-dlp/manylinux_2_31_armv7l-shared:latest
+        VERIFYIMAGE: ghcr.io/bashonly/manylinux_2_31_armv7l-shared:latest
     environment:
       EXE_NAME: ${EXE_NAME:?}
       UPDATE_TO:
@@ -115,7 +115,7 @@ services:
       platforms:
         - "linux/amd64"
       args:
-        BUILDIMAGE: ghcr.io/yt-dlp/musllinux_1_2_x86_64-shared:latest
+        BUILDIMAGE: ghcr.io/bashonly/musllinux_1_2_x86_64-shared:latest
     environment:
       REQUIREMENTS: linux
       EXE_NAME: ${EXE_NAME:?}
@@ -151,7 +151,7 @@ services:
       platforms:
         - "linux/arm64"
       args:
-        BUILDIMAGE: ghcr.io/yt-dlp/musllinux_1_2_aarch64-shared:latest
+        BUILDIMAGE: ghcr.io/bashonly/musllinux_1_2_aarch64-shared:latest
     environment:
       REQUIREMENTS: linux
       EXE_NAME: ${EXE_NAME:?}

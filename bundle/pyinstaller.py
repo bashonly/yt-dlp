@@ -7,6 +7,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import platform
+import sysconfig
 
 from PyInstaller.__main__ import run as run_pyinstaller
 
@@ -17,6 +18,10 @@ if OS_NAME == 'linux' and platform.libc_ver()[0] != 'glibc':
     OS_NAME = 'musllinux'
 if MACHINE in ('x86', 'x86_64', 'amd64', 'i386', 'i686'):
     MACHINE = 'x86' if ARCH == '32' else ''
+
+paths = []
+if OS_NAME == 'win32' and sys.version_info >= (3, 15):
+    paths.append(os.path.join(sysconfig.get_config_var('LIBDIR'), 'abi3t-compat'))
 
 
 def main():
@@ -48,6 +53,7 @@ def main():
         '--noconfirm',
         '--additional-hooks-dir=yt_dlp/__pyinstaller',
         '--add-data=THIRD_PARTY_LICENSES.txt:.',
+        *(f'--paths={path}' for path in paths),
         *opts,
         'yt_dlp/__main__.py',
     ]

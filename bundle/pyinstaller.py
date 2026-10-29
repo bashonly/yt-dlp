@@ -9,18 +9,21 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import platform
 import sysconfig
 
+OS_NAME, MACHINE, ARCH = sys.platform, platform.machine().lower(), platform.architecture()[0][:2]
+
+if OS_NAME == 'win32' and sys.version_info >= (3, 15):
+    sys.path.append(os.path.join(sysconfig.get_config_var('installed_platbase'), 'abi3t-compat'))
+
+print(sys.path)
+
 from PyInstaller.__main__ import run as run_pyinstaller
 
 from devscripts.utils import read_version
 
-OS_NAME, MACHINE, ARCH = sys.platform, platform.machine().lower(), platform.architecture()[0][:2]
 if OS_NAME == 'linux' and platform.libc_ver()[0] != 'glibc':
     OS_NAME = 'musllinux'
 if MACHINE in ('x86', 'x86_64', 'amd64', 'i386', 'i686'):
     MACHINE = 'x86' if ARCH == '32' else ''
-
-if OS_NAME == 'win32' and sys.version_info >= (3, 15):
-    sys.path.append(os.path.join(sysconfig.get_config_var('installed_platbase'), 'abi3t-compat'))
 
 
 def main():
